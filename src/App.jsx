@@ -39,11 +39,6 @@ export default function EmoteReplacer() {
   };
 
   const removeMapping = (id) => {
-    const mapping = mappings.find(m => m.id === id);
-    if (mapping && mapping.preset) {
-      alert('Cannot delete preset mappings! You can only delete custom mappings you added.');
-      return;
-    }
     setMappings(mappings.filter(m => m.id !== id));
   };
 
@@ -497,14 +492,12 @@ export default function EmoteReplacer() {
                       </div>
                     </div>
                   </div>
-                  {!mapping.preset && (
-                    <button
-                      onClick={() => removeMapping(mapping.id)}
-                      className="p-2 text-red-400 hover:bg-red-900/30 rounded transition"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => removeMapping(mapping.id)}
+                    className="p-2 text-red-400 hover:bg-red-900/30 rounded transition"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -605,6 +598,21 @@ export default function EmoteReplacer() {
             </>
           )}
         </div>
+
+        <footer className="mt-8 text-center text-gray-500 text-sm">
+          <p>
+            🔒 Your API token is stored locally and never sent anywhere except directly to 7TV's API. 
+            <br />
+            <a 
+              href="https://github.com/Lostency/seventv-replacer" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 underline"
+            >
+              View source code on GitHub
+            </a>
+          </p>
+        </footer>
       </div>
     </div>
   );
