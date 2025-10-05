@@ -14,7 +14,6 @@ export default function EmoteReplacer() {
 
   const addMapping = () => {
     if (newMapping.originalId && newMapping.replacementId) {
-      // Check if this original emote ID already exists in mappings
       const existingMapping = mappings.find(m => m.originalId === newMapping.originalId);
       
       if (existingMapping) {
@@ -26,14 +25,12 @@ export default function EmoteReplacer() {
         );
         
         if (confirmReplace) {
-          // Remove the old mapping and add the new one
           setMappings([
             ...mappings.filter(m => m.originalId !== newMapping.originalId),
             { ...newMapping, id: Date.now() }
           ]);
         }
       } else {
-        // No duplicate, just add it
         setMappings([...mappings, { ...newMapping, id: Date.now() }]);
       }
       
@@ -56,12 +53,11 @@ export default function EmoteReplacer() {
       const response = await fetch('/halloween-preset.json');
       
       if (!response.ok) {
-        throw new Error('Halloween preset file not found');
+        throw new Error('Halloween preset file not found. Make sure halloween-preset.json is in the public folder.');
       }
       
       const halloweenData = await response.json();
       
-      // Add preset flag to all imported mappings
       const halloweenMappings = halloweenData.map((m, idx) => ({
         originalId: m.originalId,
         replacementId: m.replacementId,
@@ -70,7 +66,6 @@ export default function EmoteReplacer() {
         id: Date.now() + idx
       }));
       
-      // Merge with existing, avoiding duplicates based on originalId
       const existingOriginalIds = new Set(mappings.map(m => m.originalId));
       const newMappings = halloweenMappings.filter(m => !existingOriginalIds.has(m.originalId));
       
@@ -83,6 +78,42 @@ export default function EmoteReplacer() {
     } catch (error) {
       alert('Error loading Halloween preset: ' + error.message);
       console.error('Halloween preset error:', error);
+    } finally {
+      setLoadingPreset(false);
+    }
+  };
+
+  const importWinterPreset = async () => {
+    setLoadingPreset(true);
+    try {
+      const response = await fetch('/winter-preset.json');
+      
+      if (!response.ok) {
+        throw new Error('Winter preset file not found. Make sure winter-preset.json is in the public folder.');
+      }
+      
+      const winterData = await response.json();
+      
+      const winterMappings = winterData.map((m, idx) => ({
+        originalId: m.originalId,
+        replacementId: m.replacementId,
+        name: m.name || 'Winter 2024',
+        preset: true,
+        id: Date.now() + idx
+      }));
+      
+      const existingOriginalIds = new Set(mappings.map(m => m.originalId));
+      const newMappings = winterMappings.filter(m => !existingOriginalIds.has(m.originalId));
+      
+      if (newMappings.length === 0) {
+        alert('All Winter emotes are already in your library!');
+      } else {
+        setMappings([...mappings, ...newMappings]);
+        alert(`Added ${newMappings.length} Winter emote mappings!`);
+      }
+    } catch (error) {
+      alert('Error loading Winter preset: ' + error.message);
+      console.error('Winter preset error:', error);
     } finally {
       setLoadingPreset(false);
     }
@@ -122,7 +153,6 @@ export default function EmoteReplacer() {
 
   const extractEmoteId = (input) => {
     if (!input) return '';
-    // Check if it's a URL
     const match = input.match(/emotes\/([A-Z0-9]+)/i);
     return match ? match[1] : input.trim();
   };
@@ -139,8 +169,6 @@ export default function EmoteReplacer() {
       }
       
       const data = await response.json();
-      
-      console.log('API Response:', data); // Debug log
       
       if (!data.emotes || !Array.isArray(data.emotes)) {
         throw new Error('Invalid emoteset response. The emoteset might not exist or the URL is incorrect.');
@@ -192,7 +220,6 @@ export default function EmoteReplacer() {
       try {
         console.log(`[${i + 1}/${analysis.matches.length}] Replacing: ${match.currentName} (${match.currentId}) → ${match.replacementId}`);
         
-        // Use GraphQL mutation to change emote in the set
         const mutation = `
           mutation ChangeEmoteInSet($id: ObjectID!, $action: ListItemAction!, $emote_id: ObjectID!, $name: String) {
             emoteSet(id: $id) {
@@ -203,7 +230,6 @@ export default function EmoteReplacer() {
           }
         `;
         
-        // First, remove the old emote
         const removeResponse = await fetch('https://7tv.io/v3/gql', {
           method: 'POST',
           headers: {
@@ -227,10 +253,8 @@ export default function EmoteReplacer() {
           throw new Error(removeData.errors[0].message);
         }
 
-        // Small delay between remove and add
         await delay(200);
 
-        // Then, add the new emote with the same name
         const addResponse = await fetch('https://7tv.io/v3/gql', {
           method: 'POST',
           headers: {
@@ -243,7 +267,7 @@ export default function EmoteReplacer() {
               id: analysis.emotesetId,
               action: 'ADD',
               emote_id: match.replacementId,
-              name: match.currentName // Keep original name
+              name: match.currentName
             }
           })
         });
@@ -255,15 +279,12 @@ export default function EmoteReplacer() {
         }
 
         results.push({ success: true, name: match.currentName });
-        
-        // Delay between each emote to avoid rate limiting
         await delay(500);
         
       } catch (error) {
         console.error(`Error replacing ${match.currentName}:`, error);
         results.push({ success: false, name: match.currentName, error: error.message });
         
-        // If it's a rate limit error, wait longer
         if (error.message.includes('rate') || error.message.includes('limit')) {
           console.log('Rate limit hit, waiting 3 seconds...');
           await delay(3000);
@@ -358,7 +379,21 @@ export default function EmoteReplacer() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Emote Mappings Library</h2>
             <div className="flex gap-2">
-              <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded cursor-pointer transition">
+              <button
+                onClick={importHalloweenPreset}
+                disabled={loadingPreset}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition"
+              >
+                🎃 {loadingPreset ? 'Loading...' : 'Halloween'}
+              </button>
+              <button
+                onClick={importWinterPreset}
+                disabled={loadingPreset}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition"
+              >
+                ❄️ {loadingPreset ? 'Loading...' : 'Winter'}
+              </button>
+              <label className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded cursor-pointer transition">
                 <Upload size={20} />
                 Import
                 <input
@@ -371,7 +406,7 @@ export default function EmoteReplacer() {
               <button
                 onClick={exportMappings}
                 disabled={mappings.length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition"
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition"
               >
                 <Download size={20} />
                 Export
