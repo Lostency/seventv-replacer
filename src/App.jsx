@@ -1059,32 +1059,35 @@ export default function EmoteReplacer() {
           )}
         </div>
 
+        <div className="bg-gray-800 p-6 rounded-lg mb-6">
+          <h2 className="text-xl font-semibold mb-3">🔑 API Configuration</h2>
+          <div className="mb-4">
+            <label className="block text-sm text-gray-400 mb-2">7TV API Token</label>
+            <input
+              type="password"
+              value={apiToken}
+              onChange={(e) => setApiToken(e.target.value)}
+              placeholder="Enter your 7TV API token"
+              className="w-full px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
+            />
+            <details className="text-xs text-gray-500">
+              <summary className="cursor-pointer hover:text-gray-400">How to get your token?</summary>
+              <div className="mt-2 p-2 bg-gray-700 rounded">
+                <p className="mb-2"><strong>Chrome/Edge:</strong></p>
+                <p className="mb-2">1. Press F12 → Storage → Local Storage → "7tv-token"</p>
+                <p className="mb-2"><strong>Firefox:</strong></p>
+                <p>1. Press F12 → Storage → Local Storage → "7tv-token"</p>
+                <p>2. Copy the string value (Array item #1)</p>
+              </div>
+            </details>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Option 1: Replace in existing set */}
           <div className="bg-gray-800 p-6 rounded-lg">
             <h2 className="text-xl font-semibold mb-4">1️⃣ Replace in current active Set</h2>
             <p className="text-sm text-gray-400 mb-4">Change emotes to seasonal variants in an existing set</p>
-            
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-2">7TV API Token</label>
-              <input
-                type="password"
-                value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
-                placeholder="Enter your 7TV API token"
-                className="w-full px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
-              />
-              <details className="text-xs text-gray-500">
-                <summary className="cursor-pointer hover:text-gray-400">How to get your token?</summary>
-                <div className="mt-2 p-2 bg-gray-700 rounded">
-                  <p className="mb-2"><strong>Chrome/Edge:</strong></p>
-                  <p className="mb-2">1. Press F12 → Storage → Local Storage → "7tv-token"</p>
-                  <p className="mb-2"><strong>Firefox:</strong></p>
-                  <p>1. Press F12 → Storage → Local Storage → "7tv-token"</p>
-                  <p>2. Copy the string value (Array item #1)</p>
-                </div>
-              </details>
-            </div>
 
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">Set Link / ID</label>
@@ -1128,27 +1131,6 @@ export default function EmoteReplacer() {
           <div className="bg-gray-800 p-6 rounded-lg">
             <h2 className="text-xl font-semibold mb-4">2️⃣ Import to Set</h2>
             <p className="text-sm text-gray-400 mb-4">Import emotes from one set into another existing set</p>
-            
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-2">7TV API Token</label>
-              <input
-                type="password"
-                value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
-                placeholder="Enter your 7TV API token"
-                className="w-full px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
-              />
-              <details className="text-xs text-gray-500">
-                <summary className="cursor-pointer hover:text-gray-400">How to get your token?</summary>
-                <div className="mt-2 p-2 bg-gray-700 rounded">
-                  <p className="mb-2"><strong>Chrome/Edge:</strong></p>
-                  <p className="mb-2">1. Press F12 → Storage → Local Storage → "7tv-token"</p>
-                  <p className="mb-2"><strong>Firefox:</strong></p>
-                  <p>1. Press F12 → Storage → Local Storage → "7tv-token"</p>
-                  <p>2. Copy the string value (Array item #1)</p>
-                </div>
-              </details>
-            </div>
 
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">Source Set Link / ID</label>
