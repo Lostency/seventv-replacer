@@ -1062,7 +1062,7 @@ export default function EmoteReplacer() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Option 1: Replace in existing set */}
           <div className="bg-gray-800 p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">1️⃣ Replace in Set</h2>
+            <h2 className="text-xl font-semibold mb-4">1️⃣ Replace in current active Set</h2>
             <p className="text-sm text-gray-400 mb-4">Change emotes to seasonal variants in an existing set</p>
             
             <div className="mb-4">
