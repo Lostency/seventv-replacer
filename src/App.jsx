@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, RefreshCw, Settings, Download, Upload, PlayCircle, User } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Settings, Download, Upload, PlayCircle, User, X, AlertCircle } from 'lucide-react';
 
 export default function EmoteReplacer() {
   const [mappings, setMappings] = useState([]);
@@ -8,54 +8,68 @@ export default function EmoteReplacer() {
   const [showSettings, setShowSettings] = useState(false);
   const [loadingPreset, setLoadingPreset] = useState(false);
 
+  // Modal/notification system
+  const [modal, setModal] = useState({ show: false, title: '', message: '', type: 'info', onConfirm: null });
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'info' });
+
   // Option 1: Replace in existing set
   const [replaceSetUrl, setReplaceSetUrl] = useState('');
   const [replaceAnalysis, setReplaceAnalysis] = useState(null);
   const [replacing, setReplacing] = useState(false);
   const [analyzingReplace, setAnalyzingReplace] = useState(false);
 
-  // Option 2: Create new set from source
-  const [sourceSetUrl, setSourceSetUrl] = useState('');
-  const [newSetName, setNewSetName] = useState('');
-  const [applySeasonalOnCreate, setApplySeasonalOnCreate] = useState(false);
-  const [sourceSetData, setSourceSetData] = useState(null);
-  const [creating, setCreating] = useState(false);
-
-  // Option 3: Import to existing set
+  // Option 2: Import to existing set
   const [importSourceUrl, setImportSourceUrl] = useState('');
   const [importTargetUrl, setImportTargetUrl] = useState('');
   const [applySeasonalOnImport, setApplySeasonalOnImport] = useState(false);
   const [importSourceData, setImportSourceData] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [failedEmotes, setFailedEmotes] = useState([]);
 
   // Username search
   const [username, setUsername] = useState('');
   const [userSets, setUserSets] = useState([]);
   const [loadingUserSets, setLoadingUserSets] = useState(false);
 
+  // Helper functions for modals
+  const showNotification = (message, type = 'info') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'info' }), 5000);
+  };
+
+  const showConfirm = (title, message, onConfirm) => {
+    setModal({ show: true, title, message, type: 'confirm', onConfirm });
+  };
+
+  const showAlert = (title, message) => {
+    setModal({ show: true, title, message, type: 'alert', onConfirm: null });
+  };
+
+  const closeModal = () => {
+    setModal({ show: false, title: '', message: '', type: 'info', onConfirm: null });
+  };
+
   const addMapping = () => {
     if (newMapping.originalId && newMapping.replacementId) {
       const existingMapping = mappings.find(m => m.originalId === newMapping.originalId);
       
       if (existingMapping) {
-        const confirmReplace = window.confirm(
-          `This emote ID is already mapped!\n\n` +
-          `Existing: ${existingMapping.originalId} → ${existingMapping.replacementId}\n` +
-          `${existingMapping.name ? `(${existingMapping.name})` : ''}\n\n` +
-          `Do you want to replace it with the new mapping?`
+        showConfirm(
+          'Replace Existing Mapping?',
+          `This emote ID is already mapped!\n\nExisting: ${existingMapping.originalId} → ${existingMapping.replacementId}\n${existingMapping.name ? `(${existingMapping.name})` : ''}\n\nDo you want to replace it with the new mapping?`,
+          () => {
+            setMappings([
+              ...mappings.filter(m => m.originalId !== newMapping.originalId),
+              { ...newMapping, id: Date.now() }
+            ]);
+            setNewMapping({ originalId: '', replacementId: '', name: '' });
+          }
         );
-        
-        if (confirmReplace) {
-          setMappings([
-            ...mappings.filter(m => m.originalId !== newMapping.originalId),
-            { ...newMapping, id: Date.now() }
-          ]);
-        }
       } else {
         setMappings([...mappings, { ...newMapping, id: Date.now() }]);
+        setNewMapping({ originalId: '', replacementId: '', name: '' });
       }
-      
-      setNewMapping({ originalId: '', replacementId: '', name: '' });
     }
   };
 
@@ -86,13 +100,13 @@ export default function EmoteReplacer() {
       const newMappings = halloweenMappings.filter(m => !existingOriginalIds.has(m.originalId));
       
       if (newMappings.length === 0) {
-        alert('All Halloween emotes are already in your library!');
+        showNotification('All Halloween emotes are already in your library!', 'info');
       } else {
         setMappings([...mappings, ...newMappings]);
-        alert(`Added ${newMappings.length} Halloween emote mappings!`);
+        showNotification(`Added ${newMappings.length} Halloween emote mappings!`, 'success');
       }
     } catch (error) {
-      alert('Error loading Halloween preset: ' + error.message);
+      showNotification('Error loading Halloween preset: ' + error.message, 'error');
     } finally {
       setLoadingPreset(false);
     }
@@ -121,13 +135,13 @@ export default function EmoteReplacer() {
       const newMappings = winterMappings.filter(m => !existingOriginalIds.has(m.originalId));
       
       if (newMappings.length === 0) {
-        alert('All Winter emotes are already in your library!');
+        showNotification('All Winter emotes are already in your library!', 'info');
       } else {
         setMappings([...mappings, ...newMappings]);
-        alert(`Added ${newMappings.length} Winter emote mappings!`);
+        showNotification(`Added ${newMappings.length} Winter emote mappings!`, 'success');
       }
     } catch (error) {
-      alert('Error loading Winter preset: ' + error.message);
+      showNotification('Error loading Winter preset: ' + error.message, 'error');
     } finally {
       setLoadingPreset(false);
     }
@@ -152,8 +166,9 @@ export default function EmoteReplacer() {
         try {
           const imported = JSON.parse(e.target.result);
           setMappings(imported);
+          showNotification('Mappings imported successfully!', 'success');
         } catch (error) {
-          alert('Error importing mappings: ' + error.message);
+          showNotification('Error importing mappings: ' + error.message, 'error');
         }
       };
       reader.readAsText(file);
@@ -171,10 +186,9 @@ export default function EmoteReplacer() {
     return match ? match[1] : input.trim();
   };
 
-  // Option 1: Analyze and replace in existing set
   const analyzeForReplace = async () => {
     if (!apiToken) {
-      alert('Please enter your 7TV API token in Settings');
+      showNotification('Please enter your 7TV API token', 'error');
       return;
     }
 
@@ -213,7 +227,7 @@ export default function EmoteReplacer() {
         setName: data.name
       });
     } catch (error) {
-      alert('Error analyzing emoteset: ' + error.message);
+      showNotification('Error analyzing emoteset: ' + error.message, 'error');
     }
     
     setAnalyzingReplace(false);
@@ -221,12 +235,12 @@ export default function EmoteReplacer() {
 
   const replaceEmotes = async () => {
     if (!apiToken) {
-      alert('Please enter your 7TV API token in Settings');
+      showNotification('Please enter your 7TV API token', 'error');
       return;
     }
 
     if (!replaceAnalysis || replaceAnalysis.matches.length === 0) {
-      alert('No emotes to replace');
+      showNotification('No emotes to replace', 'error');
       return;
     }
 
@@ -237,7 +251,7 @@ export default function EmoteReplacer() {
     for (let i = 0; i < replaceAnalysis.matches.length; i++) {
       const match = replaceAnalysis.matches[i];
       try {
-        console.log(`[${i + 1}/${replaceAnalysis.matches.length}] Replacing: ${match.currentName} (${match.currentId}) → ${match.replacementId}`);
+        console.log(`[${i + 1}/${replaceAnalysis.matches.length}] Replacing: ${match.currentName}`);
         
         const mutation = `
           mutation ChangeEmoteInSet($id: ObjectID!, $action: ListItemAction!, $emote_id: ObjectID!, $name: String) {
@@ -305,7 +319,6 @@ export default function EmoteReplacer() {
         results.push({ success: false, name: match.currentName, error: error.message });
         
         if (error.message.includes('rate') || error.message.includes('limit')) {
-          console.log('Rate limit hit, waiting 3 seconds...');
           await delay(3000);
         }
       }
@@ -321,7 +334,7 @@ export default function EmoteReplacer() {
       message += '\n\nFailed emotes:\n' + failedEmotes.map(r => `- ${r.name}: ${r.error}`).join('\n');
     }
     
-    alert(message);
+    showAlert('Replacement Complete', message);
 
     setReplacing(false);
     
@@ -331,225 +344,10 @@ export default function EmoteReplacer() {
     }
   };
 
-  // Option 2: Create new set from source
-  const analyzeSourceForCreate = async () => {
-    const id = extractEmotesetId(sourceSetUrl);
-    if (!id) {
-      alert('Please enter a valid emote set URL or ID');
-      return;
-    }
-
-    try {
-      const response = await fetch(`https://7tv.io/v3/emote-sets/${id}`);
-      
-      if (!response.ok) {
-        throw new Error('Could not fetch source emote set. Check the URL/ID.');
-      }
-      
-      const data = await response.json();
-      
-      if (!data.emotes || !Array.isArray(data.emotes)) {
-        throw new Error('Invalid emote set response.');
-      }
-
-      setSourceSetData({
-        id: data.id,
-        name: data.name,
-        emotes: data.emotes.map(e => ({
-          id: e.id,
-          name: e.name
-        }))
-      });
-
-      if (applySeasonalOnCreate && mappings.length > 0) {
-        const willReplace = data.emotes.filter(emote => 
-          mappings.some(m => m.originalId === emote.id)
-        );
-        
-        if (willReplace.length > 0) {
-          alert(`Found ${willReplace.length} emote(s) that will be replaced with seasonal variants.`);
-        }
-      }
-    } catch (error) {
-      alert('Error analyzing source set: ' + error.message);
-    }
-  };
-
-  const createNewSetFromSource = async () => {
-    if (!apiToken) {
-      alert('Please enter your 7TV API token in Settings');
-      return;
-    }
-
-    if (!sourceSetData) {
-      alert('Please analyze a source emote set first');
-      return;
-    }
-
-    if (!newSetName.trim()) {
-      alert('Please enter a name for the new emote set');
-      return;
-    }
-
-    const confirmMsg = `Create new set "${newSetName}" with ${sourceSetData.emotes.length} emotes?${applySeasonalOnCreate ? '\n\n⚠️ Seasonal replacements will be applied!' : ''}`;
-
-    if (!confirm(confirmMsg)) return;
-
-    setCreating(true);
-    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    try {
-      console.log('Creating new emote set...');
-      
-      const createQuery = `
-        mutation CreateEmoteSet($name: String!) {
-          createEmoteSet(name: $name) {
-            id
-            name
-          }
-        }
-      `;
-
-      const createResponse = await fetch('https://7tv.io/v3/gql', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: createQuery,
-          variables: { name: newSetName }
-        })
-      });
-
-      const createData = await createResponse.json();
-
-      if (createData.errors) {
-        throw new Error(createData.errors[0].message);
-      }
-
-      const newSetId = createData.data.createEmoteSet.id;
-      console.log('Created set:', newSetId);
-      await delay(500);
-
-      const mutation = `
-        mutation ChangeEmoteInSet($id: ObjectID!, $action: ListItemAction!, $emote_id: ObjectID!, $name: String) {
-          emoteSet(id: $id) {
-            emotes(id: $emote_id, action: $action, name: $name) {
-              id
-            }
-          }
-        }
-      `;
-
-      const results = [];
-      let processed = 0;
-
-      for (const emote of sourceSetData.emotes) {
-        processed++;
-        let emoteIdToAdd = emote.id;
-        let emoteName = emote.name;
-        let wasReplaced = false;
-
-        if (applySeasonalOnCreate) {
-          const mapping = mappings.find(m => m.originalId === emote.id);
-          if (mapping) {
-            emoteIdToAdd = mapping.replacementId;
-            wasReplaced = true;
-            console.log(`[${processed}/${sourceSetData.emotes.length}] Replacing: ${emoteName} (${emote.id}) → ${mapping.replacementId}`);
-          } else {
-            console.log(`[${processed}/${sourceSetData.emotes.length}] Adding: ${emoteName}`);
-          }
-        } else {
-          console.log(`[${processed}/${sourceSetData.emotes.length}] Adding: ${emoteName}`);
-        }
-
-        try {
-          const response = await fetch('https://7tv.io/v3/gql', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              query: mutation,
-              variables: {
-                id: newSetId,
-                action: 'ADD',
-                emote_id: emoteIdToAdd,
-                name: emoteName
-              }
-            })
-          });
-
-          const data = await response.json();
-
-          if (data.errors) {
-            throw new Error(data.errors[0].message);
-          }
-
-          results.push({ 
-            success: true, 
-            name: emoteName, 
-            replaced: wasReplaced 
-          });
-          
-          await delay(400);
-
-        } catch (error) {
-          console.error(`Error adding ${emoteName}:`, error);
-          results.push({ 
-            success: false, 
-            name: emoteName, 
-            error: error.message 
-          });
-
-          if (error.message.includes('rate') || error.message.includes('limit')) {
-            console.log('Rate limit hit, waiting 3 seconds...');
-            await delay(3000);
-          }
-        }
-      }
-
-      const successCount = results.filter(r => r.success).length;
-      const failCount = results.filter(r => !r.success).length;
-      const replacedCount = results.filter(r => r.success && r.replaced).length;
-      
-      let message = `Set created!\n\nSuccess: ${successCount}\nFailed: ${failCount}`;
-      
-      if (applySeasonalOnCreate && replacedCount > 0) {
-        message += `\n🎃 Seasonal replacements applied: ${replacedCount}`;
-      }
-      
-      if (failCount > 0) {
-        const failedEmotes = results.filter(r => !r.success);
-        message += '\n\nFailed emotes:\n' + failedEmotes.slice(0, 10).map(r => `- ${r.name}: ${r.error}`).join('\n');
-        if (failedEmotes.length > 10) {
-          message += `\n... and ${failedEmotes.length - 10} more`;
-        }
-      }
-      
-      alert(message);
-
-      if (successCount > 0) {
-        setSourceSetData(null);
-        setSourceSetUrl('');
-        setNewSetName('');
-      }
-
-    } catch (error) {
-      alert('Error creating set: ' + error.message);
-      console.error('Creation error:', error);
-    }
-
-    setCreating(false);
-  };
-
-  // Option 3: Import to existing set
   const analyzeSourceForImport = async () => {
     const id = extractEmotesetId(importSourceUrl);
     if (!id) {
-      alert('Please enter a valid source emote set URL or ID');
+      showNotification('Please enter a valid source emote set URL or ID', 'error');
       return;
     }
 
@@ -581,73 +379,141 @@ export default function EmoteReplacer() {
         );
         
         if (willReplace.length > 0) {
-          alert(`Found ${willReplace.length} emote(s) that will be replaced with seasonal variants.`);
+          showNotification(`Found ${willReplace.length} emote(s) that will be replaced with seasonal variants.`, 'info');
         }
       }
     } catch (error) {
-      alert('Error analyzing source set: ' + error.message);
+      showNotification('Error analyzing source set: ' + error.message, 'error');
     }
   };
 
-  const importToExistingSet = async () => {
+  const importToExistingSet = async (emotesToImport = null) => {
     if (!apiToken) {
-      alert('Please enter your 7TV API token in Settings');
+      showNotification('Please enter your 7TV API token', 'error');
       return;
     }
 
     if (!importSourceData) {
-      alert('Please analyze a source emote set first');
+      showNotification('Please analyze a source emote set first', 'error');
       return;
     }
 
     const targetId = extractEmotesetId(importTargetUrl);
     if (!targetId) {
-      alert('Please enter a valid target emote set URL or ID');
+      showNotification('Please enter a valid target emote set URL or ID', 'error');
       return;
     }
 
-    const confirmMsg = `Import ${importSourceData.emotes.length} emotes into target set?${applySeasonalOnImport ? '\n\n⚠️ Seasonal replacements will be applied!' : ''}`;
+    const emotesArray = emotesToImport || importSourceData.emotes;
 
-    if (!confirm(confirmMsg)) return;
+    if (!emotesToImport) {
+      // First time - check for existing emotes
+      try {
+        const targetResponse = await fetch(`https://7tv.io/v3/emote-sets/${targetId}`);
+        if (targetResponse.ok) {
+          const targetData = await targetResponse.json();
+          const existingEmoteIds = new Set(targetData.emotes.map(e => e.id));
+          
+          const newEmotes = emotesArray.filter(emote => {
+            const emoteIdToCheck = applySeasonalOnImport 
+              ? (mappings.find(m => m.originalId === emote.id)?.replacementId || emote.id)
+              : emote.id;
+            return !existingEmoteIds.has(emoteIdToCheck);
+          });
 
+          if (newEmotes.length < emotesArray.length) {
+            const skipped = emotesArray.length - newEmotes.length;
+            showConfirm(
+              'Some Emotes Already Exist',
+              `${skipped} emote(s) already exist in the target set and will be skipped.\n\nProceed with importing ${newEmotes.length} new emotes?${applySeasonalOnImport ? '\n\n⚠️ Seasonal replacements will be applied!' : ''}`,
+              () => startImport(newEmotes, targetId)
+            );
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking existing emotes:', error);
+      }
+
+      showConfirm(
+        'Confirm Import',
+        `Import ${emotesArray.length} emotes into target set?${applySeasonalOnImport ? '\n\n⚠️ Seasonal replacements will be applied!' : ''}`,
+        () => startImport(emotesArray, targetId)
+      );
+    } else {
+      startImport(emotesArray, targetId);
+    }
+  };
+
+  const startImport = async (emotesArray, targetId) => {
+    closeModal();
     setImporting(true);
+    setImportProgress({ current: 0, total: emotesArray.length });
+    setFailedEmotes([]);
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    try {
-      const mutation = `
-        mutation ChangeEmoteInSet($id: ObjectID!, $action: ListItemAction!, $emote_id: ObjectID!, $name: String) {
-          emoteSet(id: $id) {
-            emotes(id: $emote_id, action: $action, name: $name) {
-              id
+    const mutation = `
+      mutation ChangeEmoteInSet($id: ObjectID!, $action: ListItemAction!, $emote_id: ObjectID!, $name: String) {
+        emoteSet(id: $id) {
+          emotes(id: $emote_id, action: $action, name: $name) {
+            id
+          }
+        }
+      }
+    `;
+
+    const results = [];
+    let processed = 0;
+
+    for (const emote of emotesArray) {
+      processed++;
+      setImportProgress({ current: processed, total: emotesArray.length });
+      
+      let emoteIdToAdd = emote.id;
+      let emoteName = emote.name;
+      let wasReplaced = false;
+      const hasSpecialChars = /[äöüÄÖÜß]/.test(emoteName);
+
+      if (applySeasonalOnImport) {
+        const mapping = mappings.find(m => m.originalId === emote.id);
+        if (mapping) {
+          emoteIdToAdd = mapping.replacementId;
+          wasReplaced = true;
+        }
+      }
+
+      try {
+        // Step 1: Add emote without special characters in name
+        const tempName = hasSpecialChars ? `temp_${Date.now()}` : emoteName;
+        
+        const addResponse = await fetch('https://7tv.io/v3/gql', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            query: mutation,
+            variables: {
+              id: targetId,
+              action: 'ADD',
+              emote_id: emoteIdToAdd,
+              name: tempName
             }
-          }
-        }
-      `;
+          })
+        });
 
-      const results = [];
-      let processed = 0;
+        const addData = await addResponse.json();
 
-      for (const emote of importSourceData.emotes) {
-        processed++;
-        let emoteIdToAdd = emote.id;
-        let emoteName = emote.name;
-        let wasReplaced = false;
-
-        if (applySeasonalOnImport) {
-          const mapping = mappings.find(m => m.originalId === emote.id);
-          if (mapping) {
-            emoteIdToAdd = mapping.replacementId;
-            wasReplaced = true;
-            console.log(`[${processed}/${importSourceData.emotes.length}] Replacing: ${emoteName} (${emote.id}) → ${mapping.replacementId}`);
-          } else {
-            console.log(`[${processed}/${importSourceData.emotes.length}] Adding: ${emoteName}`);
-          }
-        } else {
-          console.log(`[${processed}/${importSourceData.emotes.length}] Adding: ${emoteName}`);
+        if (addData.errors) {
+          throw new Error(addData.errors[0].message);
         }
 
-        try {
-          const response = await fetch('https://7tv.io/v3/gql', {
+        await delay(200);
+
+        // Step 2: Rename if needed
+        if (hasSpecialChars && tempName !== emoteName) {
+          const renameResponse = await fetch('https://7tv.io/v3/gql', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiToken}`,
@@ -657,88 +523,99 @@ export default function EmoteReplacer() {
               query: mutation,
               variables: {
                 id: targetId,
-                action: 'ADD',
+                action: 'UPDATE',
                 emote_id: emoteIdToAdd,
                 name: emoteName
               }
             })
           });
 
-          const data = await response.json();
-
-          if (data.errors) {
-            throw new Error(data.errors[0].message);
-          }
-
-          results.push({ 
-            success: true, 
-            name: emoteName, 
-            replaced: wasReplaced 
-          });
-          
-          await delay(400);
-
-        } catch (error) {
-          console.error(`Error adding ${emoteName}:`, error);
-          results.push({ 
-            success: false, 
-            name: emoteName, 
-            error: error.message 
-          });
-
-          if (error.message.includes('rate') || error.message.includes('limit')) {
-            console.log('Rate limit hit, waiting 3 seconds...');
-            await delay(3000);
+          const renameData = await renameResponse.json();
+          if (renameData.errors) {
+            console.warn(`Added emote but failed to rename: ${emoteName}`);
           }
         }
-      }
 
-      const successCount = results.filter(r => r.success).length;
-      const failCount = results.filter(r => !r.success).length;
-      const replacedCount = results.filter(r => r.success && r.replaced).length;
-      
-      let message = `Import complete!\n\nSuccess: ${successCount}\nFailed: ${failCount}`;
-      
-      if (applySeasonalOnImport && replacedCount > 0) {
-        message += `\n🎃 Seasonal replacements applied: ${replacedCount}`;
-      }
-      
-      if (failCount > 0) {
-        const failedEmotes = results.filter(r => !r.success);
-        message += '\n\nFailed emotes:\n' + failedEmotes.slice(0, 10).map(r => `- ${r.name}: ${r.error}`).join('\n');
-        if (failedEmotes.length > 10) {
-          message += `\n... and ${failedEmotes.length - 10} more`;
+        results.push({ 
+          success: true, 
+          name: emoteName,
+          id: emoteIdToAdd,
+          replaced: wasReplaced 
+        });
+        
+        await delay(400);
+
+      } catch (error) {
+        console.error(`Error adding ${emoteName}:`, error);
+        results.push({ 
+          success: false, 
+          name: emoteName,
+          id: emoteIdToAdd,
+          error: error.message 
+        });
+
+        if (error.message.includes('rate') || error.message.includes('limit')) {
+          await delay(3000);
         }
       }
-      
-      alert(message);
-
-      if (successCount > 0) {
-        setImportSourceData(null);
-        setImportSourceUrl('');
-        setImportTargetUrl('');
-      }
-
-    } catch (error) {
-      alert('Error during import: ' + error.message);
-      console.error('Import error:', error);
     }
 
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+    const replacedCount = results.filter(r => r.success && r.replaced).length;
+    const failed = results.filter(r => !r.success);
+    
+    setFailedEmotes(failed.map(r => ({ id: r.id, name: r.name })));
+
+    let message = `Import complete!\n\nSuccess: ${successCount}\nFailed: ${failCount}`;
+    
+    if (applySeasonalOnImport && replacedCount > 0) {
+      message += `\n🎃 Seasonal replacements applied: ${replacedCount}`;
+    }
+    
+    if (failCount > 0) {
+      message += '\n\nFailed emotes:\n' + failed.slice(0, 10).map(r => `- ${r.name}: ${r.error}`).join('\n');
+      if (failed.length > 10) {
+        message += `\n... and ${failed.length - 10} more`;
+      }
+    }
+    
+    showAlert('Import Complete', message);
+
     setImporting(false);
+    setImportProgress({ current: 0, total: 0 });
+
+    if (successCount > 0 && failCount === 0) {
+      setImportSourceData(null);
+      setImportSourceUrl('');
+      setImportTargetUrl('');
+    }
   };
 
-  // Get sets by Twitch username
+  const retryFailedEmotes = () => {
+    if (failedEmotes.length === 0) return;
+    
+    const emotesToRetry = failedEmotes.map(f => ({ id: f.id, name: f.name }));
+    setFailedEmotes([]);
+    
+    showConfirm(
+      'Retry Failed Emotes',
+      `Retry importing ${emotesToRetry.length} failed emote(s)?`,
+      () => {
+        const targetId = extractEmotesetId(importTargetUrl);
+        startImport(emotesToRetry, targetId);
+      }
+    );
+  };
+
   const fetchSetsByUsername = async () => {
     if (!username.trim()) {
-      alert('Please enter a Twitch username');
+      showNotification('Please enter a Twitch username', 'error');
       return;
     }
 
     setLoadingUserSets(true);
     try {
-      console.log('Step 1: Looking up Twitch user via IVR:', username.trim());
-      
-      // Step 1: Get Twitch User ID from IVR API
       const ivrResponse = await fetch(`https://api.ivr.fi/v2/twitch/user?login=${encodeURIComponent(username.trim())}`);
       
       if (!ivrResponse.ok) {
@@ -746,18 +623,13 @@ export default function EmoteReplacer() {
       }
       
       const ivrData = await ivrResponse.json();
-      console.log('IVR API response:', ivrData);
       
       if (!ivrData || ivrData.length === 0 || !ivrData[0]?.id) {
-        throw new Error(`Twitch user "${username.trim()}" not found. Check the spelling and try again.`);
+        throw new Error(`Twitch user "${username.trim()}" not found.`);
       }
       
       const twitchUser = ivrData[0];
       const twitchUserId = twitchUser.id;
-      console.log('Found Twitch user:', twitchUser.displayName || twitchUser.login, 'ID:', twitchUserId);
-      
-      // Step 2: Get 7TV User ID from Twitch ID using v4 GraphQL
-      console.log('Step 2: Getting 7TV user ID...');
       
       const userIdQuery = `{users{userByConnection(platform:TWITCH,platformId:"${twitchUserId}"){id}}}`;
       
@@ -769,12 +641,7 @@ export default function EmoteReplacer() {
         body: JSON.stringify({ query: userIdQuery })
       });
       
-      if (!userIdResponse.ok) {
-        throw new Error('Failed to query 7TV GraphQL API');
-      }
-      
       const userIdData = await userIdResponse.json();
-      console.log('7TV user ID response:', userIdData);
       
       if (userIdData.errors) {
         throw new Error(userIdData.errors[0].message);
@@ -785,11 +652,6 @@ export default function EmoteReplacer() {
       if (!seventvUserId) {
         throw new Error(`Twitch user "${twitchUser.displayName || twitchUser.login}" does not have a 7TV account.`);
       }
-      
-      console.log('Found 7TV user ID:', seventvUserId);
-      
-      // Step 3: Get all owned emote sets
-      console.log('Step 3: Fetching owned emote sets...');
       
       const emoteSetsQuery = `
         {
@@ -814,12 +676,7 @@ export default function EmoteReplacer() {
         body: JSON.stringify({ query: emoteSetsQuery })
       });
       
-      if (!emoteSetsResponse.ok) {
-        throw new Error('Failed to fetch emote sets');
-      }
-      
       const emoteSetsData = await emoteSetsResponse.json();
-      console.log('Emote sets response:', emoteSetsData);
       
       if (emoteSetsData.errors) {
         throw new Error(emoteSetsData.errors[0].message);
@@ -831,8 +688,6 @@ export default function EmoteReplacer() {
         throw new Error('Failed to get user data');
       }
       
-      // Step 4: Get active emote set and emote counts from v3 API
-      console.log('Step 4: Checking active emote sets and fetching emote counts...');
       let activeSetIds = new Set();
       const emoteCounts = {};
       
@@ -847,10 +702,8 @@ export default function EmoteReplacer() {
               }
             });
           }
-          console.log('Active set IDs:', Array.from(activeSetIds));
         }
         
-        // Fetch emote counts for each set from v3 API
         const ownedSets = userData.ownedEmoteSets || [];
         for (const set of ownedSets) {
           try {
@@ -860,7 +713,6 @@ export default function EmoteReplacer() {
               emoteCounts[set.id] = setData.emotes?.length || 0;
             }
           } catch (error) {
-            console.error(`Failed to fetch emote count for ${set.id}:`, error);
             emoteCounts[set.id] = 0;
           }
         }
@@ -868,11 +720,10 @@ export default function EmoteReplacer() {
         console.error('Failed to fetch additional data:', error);
       }
       
-      // Format the owned emote sets
       const ownedSets = userData.ownedEmoteSets || [];
       
       if (ownedSets.length === 0) {
-        alert(`Found "${twitchUser.displayName || twitchUser.login}" but they have no emote sets.`);
+        showNotification(`Found "${twitchUser.displayName || twitchUser.login}" but they have no emote sets.`, 'info');
         setUserSets([]);
       } else {
         const formattedSets = ownedSets.map(set => ({
@@ -886,12 +737,11 @@ export default function EmoteReplacer() {
         
         setUserSets(formattedSets);
         const activeCount = formattedSets.filter(s => s.isActive).length;
-        alert(`Found ${ownedSets.length} emote set(s) for "${twitchUser.displayName || twitchUser.login}"${activeCount > 0 ? ` (${activeCount} currently active)` : ''}`);
+        showNotification(`Found ${ownedSets.length} emote set(s) for "${twitchUser.displayName || twitchUser.login}"${activeCount > 0 ? ` (${activeCount} currently active)` : ''}`, 'success');
       }
       
     } catch (error) {
-      console.error('Error fetching user sets:', error);
-      alert('Error: ' + error.message);
+      showNotification('Error: ' + error.message, 'error');
       setUserSets([]);
     }
     setLoadingUserSets(false);
@@ -923,6 +773,66 @@ export default function EmoteReplacer() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
+      {/* Modal */}
+      {modal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-semibold">{modal.title}</h3>
+              <button onClick={closeModal} className="text-gray-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-gray-300 whitespace-pre-line mb-6">{modal.message}</p>
+            <div className="flex justify-end gap-3">
+              {modal.type === 'confirm' ? (
+                <>
+                  <button
+                    onClick={closeModal}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      modal.onConfirm();
+                      closeModal();
+                    }}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded transition"
+                  >
+                    Confirm
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={closeModal}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded transition"
+                >
+                  OK
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification */}
+      {notification.show && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in">
+          <div className={`px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 ${
+            notification.type === 'success' ? 'bg-green-600' :
+            notification.type === 'error' ? 'bg-red-600' :
+            'bg-blue-600'
+          }`}>
+            <AlertCircle size={20} />
+            <span>{notification.message}</span>
+            <button onClick={() => setNotification({ show: false, message: '', type: 'info' })}>
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -939,20 +849,8 @@ export default function EmoteReplacer() {
 
         {showSettings && (
           <div className="bg-gray-800 p-6 rounded-lg mb-6">
-            <h3 className="text-lg font-semibold mb-3">API Settings</h3>
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">7TV API Token</label>
-              <input
-                type="password"
-                value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
-                placeholder="Enter your 7TV API token"
-                className="w-full px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                Get your token from <a href="https://7tv.app/settings" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">7TV Settings</a>
-              </p>
-            </div>
+            <h3 className="text-lg font-semibold mb-3">Settings</h3>
+            <p className="text-sm text-gray-400 mb-2">Additional configuration options</p>
           </div>
         )}
 
@@ -1095,7 +993,7 @@ export default function EmoteReplacer() {
           
           <div className="bg-blue-900/30 border border-blue-700 rounded p-4 mb-4">
             <p className="text-blue-200 text-sm">
-              Enter any Twitch username to find their 7TV emote sets. The app will automatically look up their Twitch ID and find their 7TV profile.
+              Enter any Twitch username to find their 7TV emote sets.
             </p>
           </div>
 
@@ -1148,7 +1046,7 @@ export default function EmoteReplacer() {
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(set.id);
-                        alert('Set ID copied to clipboard!');
+                        showNotification('Set ID copied to clipboard!', 'success');
                       }}
                       className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm transition"
                     >
@@ -1161,12 +1059,33 @@ export default function EmoteReplacer() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Option 1: Replace in existing set */}
           <div className="bg-gray-800 p-6 rounded-lg">
             <h2 className="text-xl font-semibold mb-4">1️⃣ Replace in Set</h2>
             <p className="text-sm text-gray-400 mb-4">Change emotes to seasonal variants in an existing set</p>
             
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-2">7TV API Token</label>
+              <input
+                type="password"
+                value={apiToken}
+                onChange={(e) => setApiToken(e.target.value)}
+                placeholder="Enter your 7TV API token"
+                className="w-full px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
+              />
+              <details className="text-xs text-gray-500">
+                <summary className="cursor-pointer hover:text-gray-400">How to get your token?</summary>
+                <div className="mt-2 p-2 bg-gray-700 rounded">
+                  <p className="mb-2"><strong>Chrome/Edge:</strong></p>
+                  <p className="mb-2">1. Press F12 → Storage → Local Storage → "7tv-token"</p>
+                  <p className="mb-2"><strong>Firefox:</strong></p>
+                  <p>1. Press F12 → Storage → Local Storage → "7tv-token"</p>
+                  <p>2. Copy the string value (Array item #1)</p>
+                </div>
+              </details>
+            </div>
+
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">Set Link / ID</label>
               <input
@@ -1178,7 +1097,7 @@ export default function EmoteReplacer() {
               />
               <button
                 onClick={analyzeForReplace}
-                disabled={analyzingReplace || !replaceSetUrl || mappings.length === 0}
+                disabled={analyzingReplace || !replaceSetUrl || mappings.length === 0 || !apiToken}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition"
               >
                 <RefreshCw size={20} className={analyzingReplace ? 'animate-spin' : ''} />
@@ -1205,76 +1124,32 @@ export default function EmoteReplacer() {
             )}
           </div>
 
-          {/* Option 2: Create new set */}
+          {/* Option 2: Import to existing */}
           <div className="bg-gray-800 p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">2️⃣ Create New Set</h2>
-            <p className="text-sm text-gray-400 mb-4">Create a new set from a source with optional seasonal changes</p>
-            
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-2">Source Set Link / ID</label>
-              <input
-                type="text"
-                value={sourceSetUrl}
-                onChange={(e) => setSourceSetUrl(e.target.value)}
-                placeholder="Source set URL or ID"
-                className="w-full px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-              />
-              
-              <label className="block text-sm text-gray-400 mb-2">New Set Name</label>
-              <input
-                type="text"
-                value={newSetName}
-                onChange={(e) => setNewSetName(e.target.value)}
-                placeholder="Enter new set name"
-                className="w-full px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
-              />
-
-              {mappings.length > 0 && (
-                <label className="flex items-center gap-2 mb-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={applySeasonalOnCreate}
-                    onChange={(e) => setApplySeasonalOnCreate(e.target.checked)}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">Apply seasonal</span>
-                </label>
-              )}
-
-              <button
-                onClick={analyzeSourceForCreate}
-                disabled={!sourceSetUrl}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition mb-2"
-              >
-                <RefreshCw size={20} />
-                Analyze
-              </button>
-            </div>
-
-            {sourceSetData && (
-              <div className="mt-4">
-                <div className="bg-gray-700 p-3 rounded mb-3">
-                  <p className="text-sm">
-                    {sourceSetData.emotes.length} emotes ready
-                  </p>
-                </div>
-                <button
-                  onClick={createNewSetFromSource}
-                  disabled={creating || !newSetName.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition"
-                >
-                  <PlayCircle size={20} className={creating ? 'animate-pulse' : ''} />
-                  {creating ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Option 3: Import to existing */}
-          <div className="bg-gray-800 p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">3️⃣ Import to Set</h2>
+            <h2 className="text-xl font-semibold mb-4">2️⃣ Import to Set</h2>
             <p className="text-sm text-gray-400 mb-4">Import emotes from one set into another existing set</p>
             
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-2">7TV API Token</label>
+              <input
+                type="password"
+                value={apiToken}
+                onChange={(e) => setApiToken(e.target.value)}
+                placeholder="Enter your 7TV API token"
+                className="w-full px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 mb-2"
+              />
+              <details className="text-xs text-gray-500">
+                <summary className="cursor-pointer hover:text-gray-400">How to get your token?</summary>
+                <div className="mt-2 p-2 bg-gray-700 rounded">
+                  <p className="mb-2"><strong>Chrome/Edge:</strong></p>
+                  <p className="mb-2">1. Press F12 → Storage → Local Storage → "7tv-token"</p>
+                  <p className="mb-2"><strong>Firefox:</strong></p>
+                  <p>1. Press F12 → Storage → Local Storage → "7tv-token"</p>
+                  <p>2. Copy the string value (Array item #1)</p>
+                </div>
+              </details>
+            </div>
+
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">Source Set Link / ID</label>
               <input
@@ -1324,13 +1199,22 @@ export default function EmoteReplacer() {
                   </p>
                 </div>
                 <button
-                  onClick={importToExistingSet}
-                  disabled={importing || !importTargetUrl}
+                  onClick={() => importToExistingSet()}
+                  disabled={importing || !importTargetUrl || !apiToken}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition"
                 >
                   <PlayCircle size={20} className={importing ? 'animate-pulse' : ''} />
-                  {importing ? 'Importing...' : 'Import'}
+                  {importing ? `Importing... ${importProgress.current}/${importProgress.total}` : 'Import'}
                 </button>
+                {failedEmotes.length > 0 && !importing && (
+                  <button
+                    onClick={retryFailedEmotes}
+                    className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded transition"
+                  >
+                    <RefreshCw size={20} />
+                    Retry {failedEmotes.length} Failed Emote{failedEmotes.length !== 1 ? 's' : ''}
+                  </button>
+                )}
               </div>
             )}
           </div>
