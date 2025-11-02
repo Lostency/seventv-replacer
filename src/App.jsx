@@ -472,7 +472,6 @@ export default function EmoteReplacer() {
       let emoteIdToAdd = emote.id;
       let emoteName = emote.name;
       let wasReplaced = false;
-      const hasSpecialChars = /[äöüÄÖÜß]/.test(emoteName);
 
       if (applySeasonalOnImport) {
         const mapping = mappings.find(m => m.originalId === emote.id);
@@ -482,10 +481,18 @@ export default function EmoteReplacer() {
         }
       }
 
+      // Convert German special characters to ASCII equivalents
+      // ä → ae, ö → oe, ü → ue, ß → ss (and uppercase variants)
+      const convertedName = emoteName
+        .replace(/ä/g, 'ae')
+        .replace(/ö/g, 'oe')
+        .replace(/ü/g, 'ue')
+        .replace(/Ä/g, 'Ae')
+        .replace(/Ö/g, 'Oe')
+        .replace(/Ü/g, 'Ue')
+        .replace(/ß/g, 'ss');
+
       try {
-        // Step 1: Add emote without special characters in name
-        const tempName = hasSpecialChars ? `temp_${Date.now()}` : emoteName;
-        
         const addResponse = await fetch('https://7tv.io/v3/gql', {
           method: 'POST',
           headers: {
@@ -498,7 +505,7 @@ export default function EmoteReplacer() {
               id: targetId,
               action: 'ADD',
               emote_id: emoteIdToAdd,
-              name: tempName
+              name: convertedName
             }
           })
         });
@@ -509,38 +516,13 @@ export default function EmoteReplacer() {
           throw new Error(addData.errors[0].message);
         }
 
-        await delay(200);
-
-        // Step 2: Rename if needed
-        if (hasSpecialChars && tempName !== emoteName) {
-          const renameResponse = await fetch('https://7tv.io/v3/gql', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              query: mutation,
-              variables: {
-                id: targetId,
-                action: 'UPDATE',
-                emote_id: emoteIdToAdd,
-                name: emoteName
-              }
-            })
-          });
-
-          const renameData = await renameResponse.json();
-          if (renameData.errors) {
-            console.warn(`Added emote but failed to rename: ${emoteName}`);
-          }
-        }
-
         results.push({ 
           success: true, 
-          name: emoteName,
+          name: convertedName,
+          originalName: emoteName,
           id: emoteIdToAdd,
-          replaced: wasReplaced 
+          replaced: wasReplaced,
+          converted: emoteName !== convertedName
         });
         
         await delay(400);
@@ -563,6 +545,7 @@ export default function EmoteReplacer() {
     const successCount = results.filter(r => r.success).length;
     const failCount = results.filter(r => !r.success).length;
     const replacedCount = results.filter(r => r.success && r.replaced).length;
+    const convertedCount = results.filter(r => r.success && r.converted).length;
     const failed = results.filter(r => !r.success);
     
     setFailedEmotes(failed.map(r => ({ id: r.id, name: r.name })));
@@ -571,6 +554,21 @@ export default function EmoteReplacer() {
     
     if (applySeasonalOnImport && replacedCount > 0) {
       message += `\n🎃 Seasonal replacements applied: ${replacedCount}`;
+    }
+    
+    if (convertedCount > 0) {
+      message += `\n🔤 German characters converted: ${convertedCount}`;
+      const convertedExamples = results
+        .filter(r => r.success && r.converted)
+        .slice(0, 3)
+        .map(r => `  ${r.originalName} → ${r.name}`)
+        .join('\n');
+      if (convertedExamples) {
+        message += `\n${convertedExamples}`;
+        if (convertedCount > 3) {
+          message += `\n  ... and ${convertedCount - 3} more`;
+        }
+      }
     }
     
     if (failCount > 0) {
