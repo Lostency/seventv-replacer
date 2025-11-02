@@ -17,6 +17,7 @@ export default function EmoteReplacer() {
   const [replaceAnalysis, setReplaceAnalysis] = useState(null);
   const [replacing, setReplacing] = useState(false);
   const [analyzingReplace, setAnalyzingReplace] = useState(false);
+  const [replaceProgress, setReplaceProgress] = useState({ current: 0, total: 0 });
 
   // Option 2: Import to existing set
   const [importSourceUrl, setImportSourceUrl] = useState('');
@@ -196,6 +197,7 @@ export default function EmoteReplacer() {
     setAnalyzingReplace(true);
     
     try {
+      console.log('Fetching emote set:', id);
       const response = await fetch(`https://7tv.io/v3/emote-sets/${id}`);
       
       if (!response.ok) {
@@ -203,33 +205,76 @@ export default function EmoteReplacer() {
       }
       
       const data = await response.json();
-      console.log('API Response:', data); // Debug log to see structure
       
-      // Handle both possible response structures
-      let emotes = [];
+      // LOG THE ENTIRE RESPONSE
+      console.log('Full API Response:', JSON.stringify(data, null, 2));
+      console.log('Response keys:', Object.keys(data));
+      
+      // Try to find emotes in various possible locations
+      let emotes = null;
+      let foundLocation = 'not found';
+      
+      // Check all possible locations
       if (data.emotes && Array.isArray(data.emotes)) {
-        // Direct emotes array
         emotes = data.emotes;
-      } else if (data.data && data.data.emotes && Array.isArray(data.data.emotes)) {
-        // Nested in data.emotes
+        foundLocation = 'data.emotes';
+      } else if (data.data?.emotes && Array.isArray(data.data.emotes)) {
         emotes = data.data.emotes;
-      } else {
-        throw new Error('Invalid emoteset response. Could not find emotes array. Check console for response structure.');
+        foundLocation = 'data.data.emotes';
+      } else if (data.emote_set?.emotes && Array.isArray(data.emote_set.emotes)) {
+        emotes = data.emote_set.emotes;
+        foundLocation = 'data.emote_set.emotes';
+      } else if (Array.isArray(data)) {
+        emotes = data;
+        foundLocation = 'data (direct array)';
       }
       
-      // Filter and match emotes - handle both emote.id and emote.emote.id structures
+      console.log('Emotes found at:', foundLocation);
+      console.log('Number of emotes:', emotes?.length || 0);
+      
+      if (!emotes || !Array.isArray(emotes) || emotes.length === 0) {
+        console.error('Could not find emotes array in response');
+        console.error('Available keys:', Object.keys(data));
+        throw new Error(`Invalid emoteset response. Could not find emotes array. Response keys: ${Object.keys(data).join(', ')}`);
+      }
+      
+      // Log first emote structure to understand format
+      if (emotes.length > 0) {
+        console.log('First emote structure:', JSON.stringify(emotes[0], null, 2));
+        console.log('First emote keys:', Object.keys(emotes[0]));
+      }
+      
+      // Filter and match emotes - try multiple property paths
       const matches = emotes.filter(emote => {
-        const emoteId = emote.id || emote.emote?.id;
+        // Try multiple ways to get the emote ID
+        const emoteId = emote.id || 
+                        emote.emote?.id || 
+                        emote.data?.id ||
+                        emote.emote_id;
+        
+        console.log('Checking emote ID:', emoteId);
         return emoteId && mappings.some(m => m.originalId === emoteId);
       });
+      
+      console.log('Matches found:', matches.length);
       
       setReplaceAnalysis({
         emotesetId: id,
         total: emotes.length,
         matches: matches.map(emote => {
-          const emoteId = emote.id || emote.emote?.id;
-          const emoteName = emote.name || emote.emote?.name || 'Unknown';
+          // Try multiple ways to get emote properties
+          const emoteId = emote.id || 
+                          emote.emote?.id || 
+                          emote.data?.id ||
+                          emote.emote_id;
+          
+          const emoteName = emote.name || 
+                            emote.emote?.name || 
+                            emote.data?.name ||
+                            'Unknown';
+          
           const mapping = mappings.find(m => m.originalId === emoteId);
+          
           return {
             currentName: emoteName,
             currentId: emoteId,
@@ -237,14 +282,18 @@ export default function EmoteReplacer() {
             mappingName: mapping.name
           };
         }),
-        setName: data.name || 'Emote Set'
+        setName: data.name || data.data?.name || 'Emote Set'
       });
       
       if (matches.length === 0) {
         showNotification('No matching emotes found in this set', 'info');
+      } else {
+        showNotification(`Found ${matches.length} emote(s) to replace`, 'success');
       }
+      
     } catch (error) {
       console.error('Full error:', error);
+      console.error('Error stack:', error.stack);
       showNotification('Error analyzing emoteset: ' + error.message, 'error');
     }
     
@@ -263,11 +312,16 @@ export default function EmoteReplacer() {
     }
 
     setReplacing(true);
+    setReplaceProgress({ current: 0, total: replaceAnalysis.matches.length });
     const results = [];
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     for (let i = 0; i < replaceAnalysis.matches.length; i++) {
       const match = replaceAnalysis.matches[i];
+      
+      // Update progress
+      setReplaceProgress({ current: i + 1, total: replaceAnalysis.matches.length });
+      
       try {
         console.log(`[${i + 1}/${replaceAnalysis.matches.length}] Replacing: ${match.currentName}`);
         
@@ -355,6 +409,7 @@ export default function EmoteReplacer() {
     showAlert('Replacement Complete', message);
 
     setReplacing(false);
+    setReplaceProgress({ current: 0, total: 0 });
     
     if (successCount > 0) {
       setReplaceAnalysis(null);
@@ -1137,7 +1192,9 @@ export default function EmoteReplacer() {
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition"
                 >
                   <PlayCircle size={20} className={replacing ? 'animate-pulse' : ''} />
-                  {replacing ? 'Replacing...' : 'Replace'}
+                  {replacing 
+                    ? `Replacing ${replaceProgress.current} of ${replaceProgress.total}...` 
+                    : 'Replace'}
                 </button>
               </div>
             )}
