@@ -203,30 +203,48 @@ export default function EmoteReplacer() {
       }
       
       const data = await response.json();
+      console.log('API Response:', data); // Debug log to see structure
       
-      if (!data.emotes || !Array.isArray(data.emotes)) {
-        throw new Error('Invalid emoteset response.');
+      // Handle both possible response structures
+      let emotes = [];
+      if (data.emotes && Array.isArray(data.emotes)) {
+        // Direct emotes array
+        emotes = data.emotes;
+      } else if (data.data && data.data.emotes && Array.isArray(data.data.emotes)) {
+        // Nested in data.emotes
+        emotes = data.data.emotes;
+      } else {
+        throw new Error('Invalid emoteset response. Could not find emotes array. Check console for response structure.');
       }
       
-      const matches = data.emotes.filter(emote => 
-        mappings.some(m => m.originalId === emote.id)
-      );
+      // Filter and match emotes - handle both emote.id and emote.emote.id structures
+      const matches = emotes.filter(emote => {
+        const emoteId = emote.id || emote.emote?.id;
+        return emoteId && mappings.some(m => m.originalId === emoteId);
+      });
       
       setReplaceAnalysis({
         emotesetId: id,
-        total: data.emotes.length,
+        total: emotes.length,
         matches: matches.map(emote => {
-          const mapping = mappings.find(m => m.originalId === emote.id);
+          const emoteId = emote.id || emote.emote?.id;
+          const emoteName = emote.name || emote.emote?.name || 'Unknown';
+          const mapping = mappings.find(m => m.originalId === emoteId);
           return {
-            currentName: emote.name,
-            currentId: emote.id,
+            currentName: emoteName,
+            currentId: emoteId,
             replacementId: mapping.replacementId,
             mappingName: mapping.name
           };
         }),
-        setName: data.name
+        setName: data.name || 'Emote Set'
       });
+      
+      if (matches.length === 0) {
+        showNotification('No matching emotes found in this set', 'info');
+      }
     } catch (error) {
+      console.error('Full error:', error);
       showNotification('Error analyzing emoteset: ' + error.message, 'error');
     }
     
