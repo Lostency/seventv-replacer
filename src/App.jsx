@@ -198,7 +198,16 @@ export default function EmoteReplacer() {
     
     try {
       console.log('Fetching emote set:', id);
-      const response = await fetch(`https://7tv.io/v3/emote-sets/${id}`);
+      
+      // Add cache-busting parameter and explicit headers
+      const timestamp = Date.now();
+      const response = await fetch(`https://7tv.io/v3/emote-sets/${id}?t=${timestamp}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`API returned status ${response.status}. Check if the emoteset ID is correct.`);
@@ -227,15 +236,48 @@ export default function EmoteReplacer() {
       } else if (Array.isArray(data)) {
         emotes = data;
         foundLocation = 'data (direct array)';
+      } else {
+        // No emotes array found - try alternative endpoint with auth
+        console.warn('No emotes array in response, trying with authentication...');
+        
+        try {
+          // Try fetching with authorization header
+          const retryResponse = await fetch(`https://7tv.io/v3/emote-sets/${id}`, {
+            headers: {
+              'Authorization': `Bearer ${apiToken}`,
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            console.log('Retry response:', retryData);
+            
+            if (retryData.emotes && Array.isArray(retryData.emotes)) {
+              emotes = retryData.emotes;
+              foundLocation = 'retry with auth';
+              console.log('✅ Retry successful! Found emotes with auth');
+            }
+          }
+        } catch (retryError) {
+          console.error('Retry failed:', retryError);
+        }
+        
+        // If still no emotes, treat as empty
+        if (!emotes) {
+          emotes = [];
+          foundLocation = 'not found (treating as empty)';
+        }
       }
       
       console.log('Emotes found at:', foundLocation);
-      console.log('Number of emotes:', emotes?.length || 0);
+      console.log('Number of emotes:', emotes.length);
       
-      if (!emotes || !Array.isArray(emotes) || emotes.length === 0) {
-        console.error('Could not find emotes array in response');
-        console.error('Available keys:', Object.keys(data));
-        throw new Error(`Invalid emoteset response. Could not find emotes array. Response keys: ${Object.keys(data).join(', ')}`);
+      // Handle empty sets
+      if (emotes.length === 0) {
+        showNotification('This emote set appears empty or the API returned incomplete data. Try again in a moment.', 'info');
+        setAnalyzingReplace(false);
+        return;
       }
       
       // Log first emote structure to understand format
