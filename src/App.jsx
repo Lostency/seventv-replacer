@@ -199,15 +199,9 @@ export default function EmoteReplacer() {
     try {
       console.log('Fetching emote set:', id);
       
-      // Add cache-busting parameter and explicit headers
+      // Add cache-busting parameter only (headers cause CORS issues)
       const timestamp = Date.now();
-      const response = await fetch(`https://7tv.io/v3/emote-sets/${id}?t=${timestamp}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
+      const response = await fetch(`https://7tv.io/v3/emote-sets/${id}?t=${timestamp}`);
       
       if (!response.ok) {
         throw new Error(`API returned status ${response.status}. Check if the emoteset ID is correct.`);
@@ -241,11 +235,10 @@ export default function EmoteReplacer() {
         console.warn('No emotes array in response, trying with authentication...');
         
         try {
-          // Try fetching with authorization header
+          // Try fetching with authorization header (only allowed CORS header)
           const retryResponse = await fetch(`https://7tv.io/v3/emote-sets/${id}`, {
             headers: {
-              'Authorization': `Bearer ${apiToken}`,
-              'Accept': 'application/json'
+              'Authorization': `Bearer ${apiToken}`
             }
           });
           
