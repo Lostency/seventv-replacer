@@ -27,6 +27,7 @@ export default function EmoteReplacer() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [failedEmotes, setFailedEmotes] = useState([]);
+  const [invalidEmotes, setInvalidEmotes] = useState([]);
 
   // Username search
   const [username, setUsername] = useState('');
@@ -81,14 +82,26 @@ export default function EmoteReplacer() {
   const importHalloweenPreset = async () => {
     setLoadingPreset(true);
     try {
-      const response = await fetch('/halloween-preset.json');
-      
+      // Use cache-busting parameter and add timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch(`/halloween-preset.json?v=${Date.now()}`, {
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error('Halloween preset file not found.');
+        throw new Error(`Failed to load Halloween preset (Status: ${response.status}). The file may be missing from the public folder.`);
       }
-      
+
       const halloweenData = await response.json();
-      
+
+      if (!Array.isArray(halloweenData) || halloweenData.length === 0) {
+        throw new Error('Invalid Halloween preset data.');
+      }
+
       const halloweenMappings = halloweenData.map((m, idx) => ({
         originalId: m.originalId,
         replacementId: m.replacementId,
@@ -96,10 +109,10 @@ export default function EmoteReplacer() {
         preset: true,
         id: Date.now() + idx
       }));
-      
+
       const existingOriginalIds = new Set(mappings.map(m => m.originalId));
       const newMappings = halloweenMappings.filter(m => !existingOriginalIds.has(m.originalId));
-      
+
       if (newMappings.length === 0) {
         showNotification('All Halloween emotes are already in your library!', 'info');
       } else {
@@ -107,7 +120,12 @@ export default function EmoteReplacer() {
         showNotification(`Added ${newMappings.length} Halloween emote mappings!`, 'success');
       }
     } catch (error) {
-      showNotification('Error loading Halloween preset: ' + error.message, 'error');
+      console.error('Halloween preset error:', error);
+      if (error.name === 'AbortError') {
+        showNotification('Halloween preset loading timed out. Please try again.', 'error');
+      } else {
+        showNotification('Error loading Halloween preset: ' + error.message, 'error');
+      }
     } finally {
       setLoadingPreset(false);
     }
@@ -116,14 +134,26 @@ export default function EmoteReplacer() {
   const importWinterPreset = async () => {
     setLoadingPreset(true);
     try {
-      const response = await fetch('/winter-preset.json');
-      
+      // Use cache-busting parameter and add timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch(`/winter-preset.json?v=${Date.now()}`, {
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error('Winter preset file not found.');
+        throw new Error(`Failed to load Winter preset (Status: ${response.status}). The file may be missing from the public folder.`);
       }
-      
+
       const winterData = await response.json();
-      
+
+      if (!Array.isArray(winterData) || winterData.length === 0) {
+        throw new Error('Invalid Winter preset data.');
+      }
+
       const winterMappings = winterData.map((m, idx) => ({
         originalId: m.originalId,
         replacementId: m.replacementId,
@@ -131,10 +161,10 @@ export default function EmoteReplacer() {
         preset: true,
         id: Date.now() + idx
       }));
-      
+
       const existingOriginalIds = new Set(mappings.map(m => m.originalId));
       const newMappings = winterMappings.filter(m => !existingOriginalIds.has(m.originalId));
-      
+
       if (newMappings.length === 0) {
         showNotification('All Winter emotes are already in your library!', 'info');
       } else {
@@ -142,7 +172,12 @@ export default function EmoteReplacer() {
         showNotification(`Added ${newMappings.length} Winter emote mappings!`, 'success');
       }
     } catch (error) {
-      showNotification('Error loading Winter preset: ' + error.message, 'error');
+      console.error('Winter preset error:', error);
+      if (error.name === 'AbortError') {
+        showNotification('Winter preset loading timed out. Please try again.', 'error');
+      } else {
+        showNotification('Error loading Winter preset: ' + error.message, 'error');
+      }
     } finally {
       setLoadingPreset(false);
     }
@@ -185,6 +220,13 @@ export default function EmoteReplacer() {
     if (!input) return '';
     const match = input.match(/emotes\/([A-Z0-9]+)/i);
     return match ? match[1] : input.trim();
+  };
+
+  const hasInvalidCharacters = (name) => {
+    // Check for German special characters and other symbols that can't be added directly
+    // 7TV only allows: letters, numbers, underscores, and hyphens
+    const validPattern = /^[a-zA-Z0-9_-]+$/;
+    return !validPattern.test(name);
   };
 
   const analyzeForReplace = async () => {
@@ -353,13 +395,13 @@ export default function EmoteReplacer() {
 
     for (let i = 0; i < replaceAnalysis.matches.length; i++) {
       const match = replaceAnalysis.matches[i];
-      
+
       // Update progress
       setReplaceProgress({ current: i + 1, total: replaceAnalysis.matches.length });
-      
+
       try {
         console.log(`[${i + 1}/${replaceAnalysis.matches.length}] Replacing: ${match.currentName}`);
-        
+
         const mutation = `
           mutation ChangeEmoteInSet($id: ObjectID!, $action: ListItemAction!, $emote_id: ObjectID!, $name: String) {
             emoteSet(id: $id) {
@@ -369,7 +411,7 @@ export default function EmoteReplacer() {
             }
           }
         `;
-        
+
         const removeResponse = await fetch('https://7tv.io/v3/gql', {
           method: 'POST',
           headers: {
@@ -419,13 +461,19 @@ export default function EmoteReplacer() {
         }
 
         results.push({ success: true, name: match.currentName });
-        await delay(500);
-        
+
+        // Only delay after every 35 successful replacements
+        if ((i + 1) % 35 === 0) {
+          await delay(2000);
+        }
+
       } catch (error) {
         console.error(`Error replacing ${match.currentName}:`, error);
         results.push({ success: false, name: match.currentName, error: error.message });
-        
+
+        // If rate limited, wait before continuing
         if (error.message.includes('rate') || error.message.includes('limit')) {
+          console.log('Rate limited, waiting 3 seconds...');
           await delay(3000);
         }
       }
@@ -558,6 +606,7 @@ export default function EmoteReplacer() {
     setImporting(true);
     setImportProgress({ current: 0, total: emotesArray.length });
     setFailedEmotes([]);
+    setInvalidEmotes([]);
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     const mutation = `
@@ -571,12 +620,14 @@ export default function EmoteReplacer() {
     `;
 
     const results = [];
+    const invalidEmotesList = [];
     let processed = 0;
+    let successfulAdds = 0;
 
     for (const emote of emotesArray) {
       processed++;
       setImportProgress({ current: processed, total: emotesArray.length });
-      
+
       let emoteIdToAdd = emote.id;
       let emoteName = emote.name;
       let wasReplaced = false;
@@ -588,17 +639,6 @@ export default function EmoteReplacer() {
           wasReplaced = true;
         }
       }
-
-      // Convert German special characters to ASCII equivalents
-      // ä → ae, ö → oe, ü → ue, ß → ss (and uppercase variants)
-      const convertedName = emoteName
-        .replace(/ä/g, 'ae')
-        .replace(/ö/g, 'oe')
-        .replace(/ü/g, 'ue')
-        .replace(/Ä/g, 'Ae')
-        .replace(/Ö/g, 'Oe')
-        .replace(/Ü/g, 'Ue')
-        .replace(/ß/g, 'ss');
 
       try {
         const addResponse = await fetch('https://7tv.io/v3/gql', {
@@ -613,7 +653,7 @@ export default function EmoteReplacer() {
               id: targetId,
               action: 'ADD',
               emote_id: emoteIdToAdd,
-              name: convertedName
+              name: emoteName
             }
           })
         });
@@ -624,68 +664,95 @@ export default function EmoteReplacer() {
           throw new Error(addData.errors[0].message);
         }
 
-        results.push({ 
-          success: true, 
-          name: convertedName,
+        results.push({
+          success: true,
+          name: emoteName,
           originalName: emoteName,
           id: emoteIdToAdd,
-          replaced: wasReplaced,
-          converted: emoteName !== convertedName
+          replaced: wasReplaced
         });
-        
-        await delay(400);
+
+        successfulAdds++;
+
+        // Only delay after every 35 successful adds
+        if (successfulAdds % 35 === 0) {
+          await delay(2000);
+        }
 
       } catch (error) {
         console.error(`Error adding ${emoteName}:`, error);
-        results.push({ 
-          success: false, 
-          name: emoteName,
-          id: emoteIdToAdd,
-          error: error.message 
-        });
 
+        // Check if error is due to invalid characters in name
+        const isInvalidNameError = error.message.toLowerCase().includes('invalid') &&
+                                   error.message.toLowerCase().includes('name');
+
+        if (isInvalidNameError && hasInvalidCharacters(emoteName)) {
+          // Add to invalid list for manual addition
+          invalidEmotesList.push({
+            id: emoteIdToAdd,
+            name: emoteName,
+            originalName: emoteName,
+            replaced: wasReplaced
+          });
+          results.push({
+            success: false,
+            name: emoteName,
+            id: emoteIdToAdd,
+            skipped: true,
+            error: 'Invalid characters in name'
+          });
+        } else {
+          // Regular error
+          results.push({
+            success: false,
+            name: emoteName,
+            id: emoteIdToAdd,
+            error: error.message
+          });
+        }
+
+        // If rate limited, wait before continuing
         if (error.message.includes('rate') || error.message.includes('limit')) {
+          console.log('Rate limited, waiting 3 seconds...');
           await delay(3000);
         }
       }
     }
 
+    // Store invalid emotes for the popup
+    if (invalidEmotesList.length > 0) {
+      setInvalidEmotes(invalidEmotesList);
+    }
+
     const successCount = results.filter(r => r.success).length;
-    const failCount = results.filter(r => !r.success).length;
+    const failCount = results.filter(r => !r.success && !r.skipped).length;
+    const skippedCount = results.filter(r => r.skipped).length;
     const replacedCount = results.filter(r => r.success && r.replaced).length;
-    const convertedCount = results.filter(r => r.success && r.converted).length;
-    const failed = results.filter(r => !r.success);
-    
+    const failed = results.filter(r => !r.success && !r.skipped);
+
     setFailedEmotes(failed.map(r => ({ id: r.id, name: r.name })));
 
     let message = `Import complete!\n\nSuccess: ${successCount}\nFailed: ${failCount}`;
-    
+
+    if (skippedCount > 0) {
+      message += `\nSkipped (invalid characters): ${skippedCount}`;
+    }
+
     if (applySeasonalOnImport && replacedCount > 0) {
       message += `\n🎃 Seasonal replacements applied: ${replacedCount}`;
     }
-    
-    if (convertedCount > 0) {
-      message += `\n🔤 German characters converted: ${convertedCount}`;
-      const convertedExamples = results
-        .filter(r => r.success && r.converted)
-        .slice(0, 3)
-        .map(r => `  ${r.originalName} → ${r.name}`)
-        .join('\n');
-      if (convertedExamples) {
-        message += `\n${convertedExamples}`;
-        if (convertedCount > 3) {
-          message += `\n  ... and ${convertedCount - 3} more`;
-        }
-      }
-    }
-    
+
     if (failCount > 0) {
       message += '\n\nFailed emotes:\n' + failed.slice(0, 10).map(r => `- ${r.name}: ${r.error}`).join('\n');
       if (failed.length > 10) {
         message += `\n... and ${failed.length - 10} more`;
       }
     }
-    
+
+    if (invalidEmotesList.length > 0) {
+      message += `\n\n⚠️ ${invalidEmotesList.length} emote(s) with special characters need to be added manually.`;
+    }
+
     showAlert('Import Complete', message);
 
     setImporting(false);
@@ -853,9 +920,39 @@ export default function EmoteReplacer() {
     setLoadingUserSets(false);
   };
 
+  // Reusable component for emote images with local fallback
+  const EmoteImage = ({ emoteId, alt, className, onError }) => {
+    const [useLocal, setUseLocal] = useState(true);
+
+    const imageSrc = useLocal
+      ? `/emote-images/${emoteId}.webp`
+      : `https://cdn.7tv.app/emote/${emoteId}/2x.webp`;
+
+    return (
+      <img
+        src={imageSrc}
+        alt={alt}
+        className={className}
+        onError={(e) => {
+          if (useLocal) {
+            // If local image fails, try CDN
+            setUseLocal(false);
+          } else {
+            // If CDN also fails, call parent onError or hide
+            if (onError) {
+              onError(e);
+            } else {
+              e.target.style.display = 'none';
+            }
+          }
+        }}
+      />
+    );
+  };
+
   const EmotePreview = ({ emoteId, label }) => {
     const [error, setError] = useState(false);
-    
+
     if (!emoteId || error) {
       return (
         <div className="w-32 h-32 bg-gray-700 rounded flex items-center justify-center text-gray-400 text-xs">
@@ -863,16 +960,80 @@ export default function EmoteReplacer() {
         </div>
       );
     }
-    
+
     return (
       <div className="flex flex-col items-center gap-2">
-        <img 
-          src={`https://cdn.7tv.app/emote/${emoteId}/4x.webp`}
+        <EmoteImage
+          emoteId={emoteId}
           alt={label}
           className="w-32 h-32 object-contain bg-gray-800 rounded"
           onError={() => setError(true)}
         />
         <span className="text-xs text-gray-400">{label}</span>
+      </div>
+    );
+  };
+
+  const InvalidEmotesModal = () => {
+    if (invalidEmotes.length === 0) return null;
+
+    const targetId = extractEmotesetId(importTargetUrl);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-lg font-semibold">⚠️ Emotes with Invalid Characters</h3>
+            <button onClick={() => setInvalidEmotes([])} className="text-gray-400 hover:text-white">
+              <X size={20} />
+            </button>
+          </div>
+          <p className="text-gray-300 mb-4">
+            The following {invalidEmotes.length} emote(s) contain special characters (like ä, ö, ü) that cannot be added automatically.
+            Click the links below to add them manually to your set:
+          </p>
+          <div className="space-y-2 mb-4">
+            {invalidEmotes.map((emote, idx) => (
+              <div key={idx} className="bg-gray-700 p-3 rounded flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <EmoteImage
+                    emoteId={emote.id}
+                    alt={emote.name}
+                    className="w-12 h-12 object-contain bg-gray-800 rounded"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-white">{emote.name}</div>
+                    <div className="text-xs text-gray-400 font-mono">ID: {emote.id}</div>
+                    {emote.replaced && (
+                      <span className="text-xs bg-orange-600 px-2 py-1 rounded">🎃 Seasonal</span>
+                    )}
+                  </div>
+                </div>
+                <a
+                  href={`https://7tv.app/emotes/${emote.id}?set=${targetId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm transition whitespace-nowrap"
+                >
+                  Add Manually
+                </a>
+              </div>
+            ))}
+          </div>
+          <div className="bg-blue-900/30 border border-blue-700 rounded p-3 mb-4">
+            <p className="text-blue-200 text-xs">
+              💡 Tip: Click "Add Manually" to open the emote page. You'll need to manually type the emote name with the special characters (e.g., {invalidEmotes[0]?.name}) when adding it.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setInvalidEmotes([])}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -921,6 +1082,9 @@ export default function EmoteReplacer() {
           </div>
         </div>
       )}
+
+      {/* Invalid Emotes Modal */}
+      <InvalidEmotesModal />
 
       {/* Notification */}
       {notification.show && (
@@ -1059,18 +1223,16 @@ export default function EmoteReplacer() {
               {mappings.map((mapping) => (
                 <div key={mapping.id} className="bg-gray-700 p-4 rounded flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <img 
-                      src={`https://cdn.7tv.app/emote/${mapping.originalId}/4x.webp`}
+                    <EmoteImage
+                      emoteId={mapping.originalId}
                       alt="Original"
                       className="w-16 h-16 object-contain bg-gray-800 rounded"
-                      onError={(e) => e.target.style.display = 'none'}
                     />
                     <span className="text-2xl text-gray-500">→</span>
-                    <img 
-                      src={`https://cdn.7tv.app/emote/${mapping.replacementId}/4x.webp`}
+                    <EmoteImage
+                      emoteId={mapping.replacementId}
                       alt="Replacement"
                       className="w-16 h-16 object-contain bg-gray-800 rounded"
-                      onError={(e) => e.target.style.display = 'none'}
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
