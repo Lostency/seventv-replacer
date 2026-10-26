@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.superpowers
+
+# Cloudflare / Wrangler local state
+.wrangler
+.impeccable/mocks/quality-bar
+.impeccable/review

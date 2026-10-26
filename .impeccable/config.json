@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-hardware.html"
+        ],
+        "createdAt": "2026-10-26T23:11:31.483Z",
+        "reason": "agent decided: throwaway decision sketch; keycaps set in a deck chassis are the chosen hardware world's literal form, not stacked cards"
+      }
+    ]
+  }
+}

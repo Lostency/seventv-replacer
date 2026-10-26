@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alt-Art Binder</title>
+<style>
+  *{box-sizing:border-box;margin:0}
+  body{width:1440px;height:900px;background:#2a2a30;font-family:system-ui;overflow:hidden;color:#F4F4F0}
+  header{height:110px;display:flex;align-items:center;justify-content:space-between;padding:0 60px}
+  header h1{font:900 40px/1 "Arial Black",sans-serif;letter-spacing:-.01em}
+  header nav{display:flex;gap:26px;font-size:15px}
+  .binder{position:absolute;left:60px;right:60px;top:120px;bottom:50px;background:#16161A;border-radius:18px;display:grid;grid-template-columns:1fr 60px 1fr;padding:34px}
+  .rings{display:flex;flex-direction:column;justify-content:space-around;align-items:center}
+  .rings i{width:28px;height:28px;border-radius:50%;border:5px solid #8a8a92}
+  .page{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:14px;background:#1f1f25;padding:16px;border-radius:8px}
+  .card{background:#F4F4F0;border-radius:8px;padding:8px;display:flex;flex-direction:column}
+  .card .art{flex:1;background:#dcdad2;border-radius:4px;display:grid;place-items:center}
+  .card .art img{width:62%;object-fit:contain}
+  .card b{height:10px;margin-top:6px;background:#D83A2F;width:40%;border-radius:2px}
+  .holo .card{background:conic-gradient(from 30deg,#7FD6C9,#C49BE8,#F2C14E,#7FD6C9)}
+  .tab{position:absolute;right:-6px;top:40px;width:340px;background:#D83A2F;padding:22px;border-radius:12px 0 0 12px}
+  .tab h2{font:900 30px/1.05 "Arial Black",sans-serif}
+  .tab input{margin-top:14px;width:100%;height:50px;border:0;border-radius:6px;padding:0 14px;font-size:20px}
+  .tab button{margin-top:10px;width:100%;height:50px;border:0;border-radius:6px;background:#16161A;color:#F2C14E;font:800 20px system-ui}
+</style></head><body>
+<header><h1>Seasonal Emote Replacer</h1><nav><span>How it works</span><span>Token guide</span><span>Compare</span><span>Sign in</span></nav></header>
+<div class="binder"><div class="page" id="l"></div><div class="rings"><i></i><i></i><i></i></div><div class="page holo" id="r"></div>
+<div class="tab"><h2>Get the holiday alt-arts for your set</h2><input value="your_channel"><button>Fill my binder</button></div></div>
+<script>
+const ids=["01EZPG1FN80001SNAW00ADK2DY","01EZPGMA6G00047EF100A1SBTF","01EZPH3FHR000C438200A44F11","01EZPHAJ3R000C438200A44F19","01EZPHJ86R000C438200A44F1S","01EZPHVXS0000C438200A44F24","01EZPJB06G000C438200A44F35","01EZPJCXQ8000C438200A44F38","01EZPK39HG00077NX500A43YDD"];
+for(const p of ['l','r']){const el=document.getElementById(p);ids.forEach(id=>{el.insertAdjacentHTML('beforeend',`<div class="card"><div class="art"><img src="../../../public/emote-images/${id}.webp" alt=""></div><b></b></div>`)})}
+</script>
+</body></html>
