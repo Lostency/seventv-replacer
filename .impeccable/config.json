@@ -11,6 +11,33 @@
         ],
         "createdAt": "2026-10-26T23:11:31.483Z",
         "reason": "agent decided: throwaway decision sketch; keycaps set in a deck chassis are the chosen hardware world's literal form, not stacked cards"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-27T00:26:54.827Z",
+        "reason": "agent decided: unchosen throwaway decision sketch, not part of the shipped world"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-27T00:26:54.968Z",
+        "reason": "agent decided: unchosen throwaway decision sketch, not part of the shipped world"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "src/pages/token-guide/devtools.module.css"
+        ],
+        "createdAt": "2026-10-27T00:26:55.102Z",
+        "reason": "agent decided: recreation of browser DevTools deliberately uses the browsers' system UI type (ruled in Task 6); not the deck's type system"
       }
     ]
   }
