@@ -1,0 +1,4 @@
+/* Self-hosted through Vite: nothing is fetched from a font CDN at runtime. */
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';
