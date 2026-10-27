@@ -82,4 +82,25 @@ describe('Landing', () => {
     expect(screen.getAllByRole('link', { name: /niena/i })[0]).toHaveAttribute('href', 'https://twitch.tv/niena');
     expect(screen.getByText('Not affiliated with 7TV.')).toBeInTheDocument();
   });
+
+  it('describes the field with the error by the time focus lands on it', async () => {
+    renderAt('/');
+    const input = screen.getByLabelText('Your Twitch channel');
+    let describedOnFocus: string | null = null;
+    input.addEventListener('focus', () => {
+      const id = input.getAttribute('aria-describedby');
+      describedOnFocus = id ? (document.getElementById(id)?.textContent ?? null) : null;
+    });
+    await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
+    expect(describedOnFocus).toBe('Type your channel name first.');
+  });
+
+  it('keeps the readout quiet for screen readers while the keys flip', async () => {
+    renderAt('/');
+    await waitFor(() => expect(document.querySelectorAll('img')).toHaveLength(24));
+    await userEvent.click(screen.getByRole('radio', { name: 'Winter' }));
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Winter · 568 mappings'), { timeout: 3000 });
+    expect(screen.getByRole('status')).not.toHaveAttribute('aria-busy', 'true');
+  });
 });

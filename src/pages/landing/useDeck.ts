@@ -103,6 +103,8 @@ export function useDeck() {
     /** The season a submit should carry: the knob's, or the one the keys are showing. */
     season: dial === 'normal' ? deckSeason : dial,
     keys,
+    /** The keys are mid-flip: the readout is counting, not settled. */
+    flipping: flipped !== target,
     presetFailed: preset === 'failed',
     readout,
     stats: typeof stats === 'object' ? stats : null,

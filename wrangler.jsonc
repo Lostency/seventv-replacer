@@ -11,8 +11,7 @@
     {
       "binding": "DB",
       "database_name": "seasonal-emote-replacer",
-      // Replaced with the real ID after `wrangler d1 create` (see README).
-      "database_id": "local",
+      "database_id": "a4a2bb83-def7-46dd-aea3-095b17f49904",
       "migrations_dir": "migrations"
     }
   ]

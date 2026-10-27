@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { SEASONS, seasonLabel } from '@shared/seasons';
 import { ActionKey } from '../design/ActionKey';
@@ -31,7 +32,8 @@ export function Landing() {
     event.preventDefault();
     const name = channel.trim();
     if (!name) {
-      setError('Type your channel name first.');
+      // Render the message (and aria-describedby) before focus lands, so screen readers hear it with the field.
+      flushSync(() => setError('Type your channel name first.'));
       channelInput.current?.focus();
       return;
     }
@@ -63,7 +65,9 @@ export function Landing() {
           </div>
 
           <div className={styles.deck}>
-            <AmberScreen className={styles.screen}>{deck.readout}</AmberScreen>
+            <AmberScreen className={styles.screen} busy={deck.flipping}>
+              {deck.readout}
+            </AmberScreen>
             <div className={styles.body}>
               <div className={styles.keys} aria-hidden="true">
                 {deck.keys.map((key, i) => (

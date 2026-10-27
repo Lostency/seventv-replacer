@@ -54,6 +54,7 @@
   height: 8px;
   margin-right: 8px;
   border-radius: 50%;
-  background: var(--amber);
+  /* Ink, not amber: amber is reserved for live state. */
+  background: currentColor;
   vertical-align: 1px;
 }
