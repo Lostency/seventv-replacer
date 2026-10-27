@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { EmoteSet } from '@shared/seventv';
 import { fakeSevenTv } from '../test/fake-seventv';
 import { executeRun, planSwaps, RunNotStarted } from './run';
+import { WriteError } from './seventv-write';
 import { undoRun } from './undo';
 
 const MAPPINGS = [
@@ -100,6 +101,22 @@ describe('replace in place, then undo', () => {
     });
     expect(report.renamed).toEqual([{ from: 'a,b', to: 'a_b' }]);
     expect(tv.store.get('S')).toEqual([{ id: 'A2', alias: 'a_b' }]);
+  });
+
+  it('doesn’t ask for a new name when 7TV only failed to save', async () => {
+    const set = source([['a', 'A']]);
+    const tv = fakeSevenTv({ S: set.emotes });
+    const unsaved = new WriteError('TRANSACTION_ERROR transaction failed', 'conflict');
+    tv.writer.addEmotes = async (_set, emotes) => emotes.map(() => ({ ok: false, error: unsaved }));
+    const askAlias = vi.fn();
+    const report = await executeRun(
+      { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
+      tv.writer,
+      { ...quick, askAlias },
+    );
+    expect(askAlias).not.toHaveBeenCalled();
+    expect(report.failed).toEqual([{ alias: 'a', reason: 'TRANSACTION_ERROR transaction failed' }]);
+    expect(tv.store.get('S')).toEqual([{ id: 'A', alias: 'a' }]);
   });
 
   it('asks again for the original when the user skips the seasonal one', async () => {

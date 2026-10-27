@@ -76,6 +76,36 @@ describe('createWriter', () => {
     expect(fetchFn.mock.calls.filter(([url]) => String(url).endsWith('/v4/gql'))).toHaveLength(1);
   });
 
+  it('retries an emote whose save 7TV couldn’t finish, on its own', async () => {
+    const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) =>
+      String(url).endsWith('/v4/gql')
+        ? answers(body(init).length, (i) => (i === 1 ? 'TRANSACTION_ERROR transaction failed' : undefined))
+        : new Response(JSON.stringify({ data: { emoteSet: { emotes: [] } } })),
+    );
+    const results = await createWriter('tok', { fetchFn, ...fast }).addEmotes('S', [
+      { emoteId: 'A', alias: 'a' },
+      { emoteId: 'B', alias: 'Wankge' },
+    ]);
+    expect(results).toEqual([{ ok: true }, { ok: true }]);
+    const v3 = fetchFn.mock.calls.filter(([url]) => String(url).endsWith('/v3/gql'));
+    expect(v3.map(([, init]) => body(init as RequestInit).variables)).toEqual([
+      { id: 'S', action: 'ADD', emote_id: 'B', name: 'Wankge' },
+    ]);
+  });
+
+  it('backs off on a failed save, and doesn’t call it a refused name if it never goes through', async () => {
+    const waits: number[] = [];
+    const failed = () => new Response(JSON.stringify({ errors: [{ message: 'TRANSACTION_ERROR transaction failed' }] }));
+    const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) =>
+      String(url).endsWith('/v4/gql') ? answers(body(init).length, () => 'TRANSACTION_ERROR transaction failed') : failed(),
+    );
+    const error = await createWriter('tok', { fetchFn, pauseMs: 0, sleep: async (ms) => void waits.push(ms) })
+      .addEmote('S', 'E', 'Wankge')
+      .catch((e) => e);
+    expect(error).toMatchObject({ kind: 'conflict' });
+    expect(waits).toEqual([1000, 1000, 2000, 4000, 8000]);
+  });
+
   it('does not retry a refusal', async () => {
     const fetchFn = vi.fn(async () => answers(1, () => 'Emote already enabled'));
     const error = await createWriter('tok', { fetchFn, ...fast }).addEmote('S', 'E', 'a').catch((e) => e);
