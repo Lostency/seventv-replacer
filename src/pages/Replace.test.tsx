@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { json, mockFetch, renderAt } from '../test/render';
-import { emoteId, SET_ID, sevenTvRead } from '../test/seventv-mock';
+import { emoteId, SET_ID, sevenTvRead, type Mutation } from '../test/seventv-mock';
 
 const A = emoteId(1, 'A');
 const B = emoteId(2, 'B');
@@ -13,19 +13,14 @@ const B2 = emoteId(2, 'R');
 const preset = (season: string) => json({ season, mappings: [{ originalId: A, replacementId: A2 }, { originalId: B, replacementId: B2 }] });
 
 let sets: Record<string, { name: string; emotes: Array<[string, string]> }>;
-let mutations: Array<Record<string, unknown>>;
+let mutations: Mutation[];
 
 function setUp() {
   sets = { [SET_ID]: { name: 'Main', emotes: [['peepoHappy', A], ['Sadge', B], ['KEKW', X]] } };
   mutations = [];
   return mockFetch({
-    ...sevenTvRead(sets),
+    ...sevenTvRead(sets, (change) => void mutations.push(change)),
     '/api/presets/': (url) => preset(url.split('/').pop()!),
-    'https://7tv.io/v3/gql': (_url, init) => {
-      const { variables } = JSON.parse(String(init?.body));
-      mutations.push(variables);
-      return json({ data: { emoteSet: { emotes: [] } } });
-    },
   });
 }
 
@@ -63,7 +58,7 @@ describe('Replace', () => {
     renderAt('/replace?channel=niena');
     await pickMain();
     await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
-    expect(screen.getByLabelText('7TV token')).toHaveFocus();
+    expect(screen.getByLabelText('7TV token', { exact: true })).toHaveFocus();
     expect(screen.getByText('Paste your 7TV token first.')).toBeInTheDocument();
     expect(mutations).toEqual([]);
   });
@@ -86,7 +81,7 @@ describe('Replace', () => {
 
   it('swaps in place keeping aliases, then offers Undo for the run', async () => {
     renderAt('/replace?channel=niena&season=halloween');
-    await userEvent.type(screen.getByLabelText('7TV token'), 'tok');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'tok');
     await pickMain();
     await userEvent.click(screen.getByRole('radio', { name: 'In place' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Sadge' }));
@@ -94,7 +89,7 @@ describe('Replace', () => {
 
     await screen.findByRole('heading', { name: 'Run finished' }, { timeout: 4000 });
     expect(mutations).toEqual([
-      { id: SET_ID, action: 'REMOVE', emote_id: A },
+      { id: SET_ID, action: 'REMOVE', emote_id: A, name: 'peepoHappy' },
       { id: SET_ID, action: 'ADD', emote_id: A2, name: 'peepoHappy' },
     ]);
     expect(screen.getByText(/1 emote swapped in “Main”/)).toBeInTheDocument();
@@ -105,7 +100,7 @@ describe('Replace', () => {
 
   it('undoes a run, skipping nothing when the set is as the run left it', async () => {
     renderAt('/replace?channel=niena&season=halloween');
-    await userEvent.type(screen.getByLabelText('7TV token'), 'tok');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'tok');
     await pickMain();
     await userEvent.click(screen.getByRole('radio', { name: 'In place' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Sadge' }));
@@ -117,7 +112,7 @@ describe('Replace', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
     await screen.findByText('Put back 1 emote in “Main”.', {}, { timeout: 4000 });
     expect(mutations).toEqual([
-      { id: SET_ID, action: 'REMOVE', emote_id: A2 },
+      { id: SET_ID, action: 'REMOVE', emote_id: A2, name: 'peepoHappy' },
       { id: SET_ID, action: 'ADD', emote_id: A, name: 'peepoHappy' },
     ]);
     expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
@@ -125,15 +120,81 @@ describe('Replace', () => {
 
   it('tells the user to log in to 7TV again when the token is rejected', async () => {
     setUp();
+    const rejected = () => json({ status: 'Unauthorized', error_code: 1000, error: 'invalid session' }, 401);
+    const read = sevenTvRead(sets);
     mockFetch({
-      ...sevenTvRead(sets),
+      ...read,
+      'https://7tv.io/v3/gql': rejected,
+      'https://7tv.io/v4/gql': (url, init) =>
+        Array.isArray(JSON.parse(String(init?.body))) ? rejected() : read['https://7tv.io/v4/gql'](url, init),
       '/api/presets/': (url) => preset(url.split('/').pop()!),
-      'https://7tv.io/v3/gql': () => json({ status: 'Unauthorized', error_code: 1000, error: 'invalid session' }, 401),
     });
     renderAt('/replace?channel=niena&season=halloween');
-    await userEvent.type(screen.getByLabelText('7TV token'), 'old');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'old');
     await pickMain();
     await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Log out of 7tv.app and log back in');
+  });
+
+  it('pauses on a refused name, asks for a new one, and lists the rename', async () => {
+    sets[SET_ID]!.emotes = [['a,b', A], ['KEKW', X]];
+    mockFetch({
+      ...sevenTvRead(sets, (change) => {
+        mutations.push(change);
+        return change.name?.includes(',') ? 'Invalid emote name' : undefined;
+      }),
+      '/api/presets/': (url) => preset(url.split('/').pop()!),
+    });
+    renderAt('/replace?channel=niena&season=halloween');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'tok');
+    await pickMain();
+    await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
+
+    const dialog = await screen.findByRole('alertdialog', {}, { timeout: 4000 });
+    expect(dialog).toHaveTextContent('7TV refused the name “a,b”');
+    expect(within(dialog).getByLabelText('New name')).toHaveValue('ab');
+    expect(within(dialog).getByLabelText('New name')).toHaveFocus();
+    expect(screen.getByRole('status')).toHaveTextContent('Waiting for you');
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Use this name' }));
+    await screen.findByRole('heading', { name: 'Run finished' }, { timeout: 4000 });
+    expect(screen.getByText('a,b → ab')).toBeInTheDocument();
+    expect(mutations).toContainEqual({ id: 'NEW', action: 'ADD', emote_id: A2, name: 'ab' });
+  });
+
+  it('keeps names with umlauts and accents as they are', async () => {
+    sets[SET_ID]!.emotes = [['üäöéèà', A]];
+    renderAt('/replace?channel=niena&season=halloween');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'tok');
+    await pickMain();
+    await userEvent.click(screen.getByRole('radio', { name: 'In place' }));
+    await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
+    await screen.findByRole('heading', { name: 'Run finished' }, { timeout: 4000 });
+    expect(mutations).toContainEqual({ id: SET_ID, action: 'ADD', emote_id: A2, name: 'üäöéèà' });
+  });
+
+  it('estimates the time left once a few emotes are done', async () => {
+    sets[SET_ID]!.emotes = Array.from({ length: 61 }, (_, i) => [`e${i}`, emoteId(i + 10, 'E')] as [string, string]);
+    renderAt('/replace?channel=niena&season=halloween');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'tok');
+    await userEvent.click(await screen.findByRole('button', { name: /Main/ }));
+    await screen.findByText(/no Halloween version yet/);
+    await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Copying · \d+\/61 · under 1 min left/), {
+      timeout: 4000,
+    });
+  });
+
+  it('saves the run for Undo while it is still going', async () => {
+    sets[SET_ID]!.emotes = Array.from({ length: 31 }, (_, i) => [`e${i}`, emoteId(i + 10, 'E')] as [string, string]);
+    renderAt('/replace?channel=niena&season=halloween');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'tok');
+    await userEvent.click(await screen.findByRole('button', { name: /Main/ }));
+    await screen.findByText(/no Halloween version yet/);
+    await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
+    // 30 emotes per request: halfway through, the first batch is in and the second isn't.
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Copying · 30\/31/), { timeout: 4000 });
+    expect(JSON.parse(localStorage.getItem('ser.runs')!)[0]).toMatchObject({ createdSet: true });
+    await screen.findByRole('heading', { name: 'Run finished' }, { timeout: 6000 });
   });
 });

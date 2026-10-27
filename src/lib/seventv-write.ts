@@ -4,7 +4,11 @@ import { SEVENTV_API } from '@shared/seventv';
  * Changes to 7TV sets, made with the user's own token. The token goes to 7TV
  * and nowhere else; this site's server never sees it.
  */
-const GQL = `${SEVENTV_API}/v3/gql`;
+const GQL_V3 = `${SEVENTV_API}/v3/gql`;
+const GQL_V4 = `${SEVENTV_API}/v4/gql`;
+
+/** Emote changes per v4 request: v4 takes an array of mutations and answers each one separately. */
+export const BATCH_SIZE = 30;
 
 export type WriteErrorKind = 'auth' | 'rate-limit' | 'refused' | 'network';
 
@@ -18,9 +22,24 @@ export class WriteError extends Error {
   }
 }
 
+export interface EmoteRef {
+  emoteId: string;
+  alias: string;
+}
+
+/** One emote's outcome inside a batch: 7TV accepts or refuses each change on its own. */
+export type ItemResult = { ok: true } | { ok: false; error: WriteError };
+
 export interface SetWriter {
+  /**
+   * Adds or removes many emotes in as few requests as 7TV allows. Resolves to
+   * one result per emote, in order; rejects only when the whole request failed
+   * (e.g. the token was refused), in which case nothing is known to have changed.
+   */
+  addEmotes(setId: string, emotes: EmoteRef[]): Promise<ItemResult[]>;
+  removeEmotes(setId: string, emotes: EmoteRef[]): Promise<ItemResult[]>;
   addEmote(setId: string, emoteId: string, alias: string): Promise<void>;
-  removeEmote(setId: string, emoteId: string): Promise<void>;
+  removeEmote(setId: string, emoteId: string, alias: string): Promise<void>;
   /** Resolves to the new set's ID. */
   createSet(ownerId: string, name: string): Promise<string>;
   deleteSet(setId: string): Promise<void>;
@@ -60,6 +79,15 @@ function classify(status: number, message: string, code?: number): WriteErrorKin
   return 'refused';
 }
 
+/** v4 answering like this means it can't run our mutation at all, not that 7TV refused the emote. */
+const SCHEMA_PROBLEM = /unknown (field|argument|type)|cannot query field|is not defined|syntax error|parse error/i;
+
+const v4Mutation = (field: 'addEmote' | 'removeEmote', setId: string, emote: EmoteRef) =>
+  // JSON string escaping is valid GraphQL string escaping, so any alias (quotes included) stays intact.
+  `mutation { emoteSets { emoteSet(id: ${JSON.stringify(setId)}) { ${field}(id: { emoteId: ${JSON.stringify(
+    emote.emoteId,
+  )}, alias: ${JSON.stringify(emote.alias)} }) { id } } } }`;
+
 interface RetryOptions {
   retries?: number;
   baseDelayMs?: number;
@@ -82,39 +110,123 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
   }
 }
 
-export function createWriter(token: string, options: RetryOptions & { fetchFn?: typeof fetch } = {}): SetWriter {
-  const fetchFn = options.fetchFn ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
+const toError = (status: number, message: string, code?: number) => {
+  const kind = classify(status, message, code);
+  return new WriteError(kind === 'auth' ? TOKEN_REJECTED : message || '7TV refused the change.', kind);
+};
 
-  const request = async <T,>(query: string, variables: Record<string, unknown>): Promise<T> => {
-    let response: Response;
+/** v4 couldn't take the batch at all; the caller falls back to v3, one emote per request. */
+class BatchUnsupported extends Error {}
+
+export function createWriter(
+  token: string,
+  options: RetryOptions & { fetchFn?: typeof fetch; pauseMs?: number } = {},
+): SetWriter {
+  const fetchFn = options.fetchFn ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
+  const { pauseMs = 250, sleep: wait = sleep } = options;
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  let batching = true;
+
+  const post = async (url: string, body: unknown): Promise<{ status: number; json: unknown }> => {
     try {
-      response = await fetchFn(GQL, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables }),
-      });
+      const response = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      return { status: response.status, json: await response.json().catch(() => null) };
     } catch {
       throw new WriteError('Couldn’t reach 7TV.', 'network');
     }
-    const body = (await response.json().catch(() => null)) as GqlResponse<T> | null;
-    const message = body?.errors?.[0]?.message ?? body?.error ?? (response.ok ? '' : `7TV answered ${response.status}`);
-    if (message || !response.ok) {
-      const kind = classify(response.status, message, body?.error_code);
-      throw new WriteError(kind === 'auth' ? TOKEN_REJECTED : message || '7TV refused the change.', kind);
-    }
+  };
+
+  const request = async <T,>(query: string, variables: Record<string, unknown>): Promise<T> => {
+    const { status, json } = await post(GQL_V3, { query, variables });
+    const body = json as GqlResponse<T> | null;
+    const ok = status >= 200 && status < 300;
+    const message = body?.errors?.[0]?.message ?? body?.error ?? (ok ? '' : `7TV answered ${status}`);
+    if (message || !ok) throw toError(status, message, body?.error_code);
     return body?.data as T;
   };
 
   const send = <T,>(query: string, variables: Record<string, unknown>) =>
     withRetry(() => request<T>(query, variables), options);
 
+  /** One v4 request for up to BATCH_SIZE changes. */
+  const batch = async (field: 'addEmote' | 'removeEmote', setId: string, emotes: EmoteRef[]): Promise<ItemResult[]> => {
+    const { status, json } = await post(
+      GQL_V4,
+      emotes.map((e) => ({ query: v4Mutation(field, setId, e) })),
+    );
+    if (!Array.isArray(json)) {
+      const body = json as GqlResponse<unknown> | null;
+      const message = body?.errors?.[0]?.message ?? body?.error ?? `7TV answered ${status}`;
+      const error = toError(status, message, body?.error_code);
+      // Token, rate limit or network: v3 would fare no better. Anything else: v4 won't batch for us.
+      if (error.kind !== 'refused') throw error;
+      throw new BatchUnsupported(message);
+    }
+    const answers = json as Array<GqlResponse<unknown> | null>;
+    if (answers.length !== emotes.length) throw new BatchUnsupported('7TV answered a different number of changes');
+    if (answers.some((a) => SCHEMA_PROBLEM.test(a?.errors?.[0]?.message ?? ''))) {
+      throw new BatchUnsupported(answers.find((a) => a?.errors?.length)!.errors![0]!.message);
+    }
+    return answers.map((answer) => {
+      const message = answer?.errors?.[0]?.message;
+      return message ? { ok: false, error: toError(200, message) } : { ok: true };
+    });
+  };
+
+  /** The tested v3 path: one emote per request, paced. */
+  const oneByOne = async (action: 'ADD' | 'REMOVE', setId: string, emotes: EmoteRef[]): Promise<ItemResult[]> => {
+    const results: ItemResult[] = [];
+    for (const [i, emote] of emotes.entries()) {
+      if (i > 0) await wait(pauseMs);
+      try {
+        await send(CHANGE_EMOTE, { id: setId, action, emote_id: emote.emoteId, name: emote.alias });
+        results.push({ ok: true });
+      } catch (error) {
+        if (error instanceof WriteError && error.kind === 'auth') throw error;
+        results.push({ ok: false, error: error instanceof WriteError ? error : toError(0, String(error)) });
+      }
+    }
+    return results;
+  };
+
+  const many = async (field: 'addEmote' | 'removeEmote', setId: string, emotes: EmoteRef[]): Promise<ItemResult[]> => {
+    const action = field === 'addEmote' ? 'ADD' : 'REMOVE';
+    const results: ItemResult[] = [];
+    for (let start = 0; start < emotes.length; start += BATCH_SIZE) {
+      if (start > 0) await wait(pauseMs);
+      const chunk = emotes.slice(start, start + BATCH_SIZE);
+      if (batching) {
+        try {
+          const answers = await withRetry(() => batch(field, setId, chunk), options);
+          // Emotes 7TV turned away for going too fast get one more paced try each.
+          for (const [i, answer] of answers.entries()) {
+            if (!answer.ok && answer.error.kind === 'rate-limit') {
+              await wait(options.baseDelayMs ?? 1000);
+              answers[i] = (await oneByOne(action, setId, [chunk[i]!]))[0]!;
+            }
+          }
+          results.push(...answers);
+          continue;
+        } catch (error) {
+          if (!(error instanceof BatchUnsupported)) throw error;
+          batching = false;
+        }
+      }
+      results.push(...(await oneByOne(action, setId, chunk)));
+    }
+    return results;
+  };
+
+  const single = async (field: 'addEmote' | 'removeEmote', setId: string, emote: EmoteRef) => {
+    const [result] = await many(field, setId, [emote]);
+    if (result && !result.ok) throw result.error;
+  };
+
   return {
-    async addEmote(setId, emoteId, alias) {
-      await send(CHANGE_EMOTE, { id: setId, action: 'ADD', emote_id: emoteId, name: alias });
-    },
-    async removeEmote(setId, emoteId) {
-      await send(CHANGE_EMOTE, { id: setId, action: 'REMOVE', emote_id: emoteId });
-    },
+    addEmotes: (setId, emotes) => many('addEmote', setId, emotes),
+    removeEmotes: (setId, emotes) => many('removeEmote', setId, emotes),
+    addEmote: (setId, emoteId, alias) => single('addEmote', setId, { emoteId, alias }),
+    removeEmote: (setId, emoteId, alias) => single('removeEmote', setId, { emoteId, alias }),
     async createSet(ownerId, name) {
       const data = await send<{ createEmoteSet?: { id: string } }>(CREATE_SET, { user_id: ownerId, data: { name } });
       const id = data?.createEmoteSet?.id;

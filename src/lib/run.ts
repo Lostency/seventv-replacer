@@ -1,8 +1,8 @@
 import type { SeasonId } from '@shared/seasons';
 import type { EmoteSet } from '@shared/seventv';
 import type { MappingRow } from '@shared/types';
-import { isValidAlias, transliterate } from './alias';
-import { sleep, TOKEN_REJECTED, WriteError, type SetWriter } from './seventv-write';
+import { suggestAlias } from './alias';
+import { BATCH_SIZE, sleep, TOKEN_REJECTED, WriteError, type ItemResult, type SetWriter } from './seventv-write';
 
 export type RunMode = 'duplicate' | 'in-place' | 'revert';
 
@@ -84,8 +84,23 @@ export interface RunInput {
   target?: DuplicateTarget;
 }
 
+/** 7TV refused a name: what the run asks the user before going on. */
+export interface AliasQuestion {
+  alias: string;
+  emoteId: string;
+  /** 7TV's own words. */
+  reason: string;
+  suggestion: string;
+  /** The emote going in: its seasonal version, or the normal one being put back or copied. */
+  role: 'seasonal' | 'normal';
+}
+
 export interface RunOptions {
   onProgress?(done: number, total: number): void;
+  /** Called after every change, so Undo has a record even if the tab closes mid-run. */
+  onRecord?(record: RunRecord): void;
+  /** Resolves to the name to try next, or null to skip the emote. Without it, a refused name fails the emote. */
+  askAlias?(question: AliasQuestion): Promise<string | null>;
   /** Breathing room between requests, so 7TV's rate limit rarely trips. */
   pauseMs?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -109,22 +124,53 @@ const TOKEN_STOPPED =
   '7TV stopped accepting your token part-way. Log out of 7tv.app and log back in, copy the fresh token, then use Undo or run again.';
 
 export async function executeRun(input: RunInput, writer: SetWriter, options: RunOptions = {}): Promise<RunReport> {
-  const { onProgress, pauseMs = 250, sleep: wait = sleep, now = () => new Date() } = options;
+  const { onProgress, onRecord, askAlias, pauseMs = 250, sleep: wait = sleep, now = () => new Date() } = options;
   const pause = () => wait(pauseMs);
 
-  /** Adds under the alias; if 7TV refuses a name it can't hold, retries once with it spelled out. */
-  const addWithAlias = async (setId: string, emoteId: string, alias: string): Promise<string> => {
+  /**
+   * 7TV refused an emote under its current spelling: ask the user for another
+   * name (or to skip) and keep trying until one goes in or they skip.
+   */
+  const resolveRefusal = async (
+    setId: string,
+    emoteId: string,
+    alias: string,
+    role: AliasQuestion['role'],
+    refusal: unknown,
+  ): Promise<string> => {
+    let name = alias;
+    let error = refusal;
+    for (;;) {
+      if (!askAlias || !(error instanceof WriteError) || error.kind !== 'refused') throw error;
+      const answer = await askAlias({ alias: name, emoteId, reason: error.message, suggestion: suggestAlias(name), role });
+      if (!answer?.trim()) throw error;
+      name = answer.trim();
+      await pause();
+      try {
+        await writer.addEmote(setId, emoteId, name);
+        return name;
+      } catch (next) {
+        error = next;
+      }
+    }
+  };
+
+  /** Adds one emote under its current spelling, asking the user if 7TV refuses it. */
+  const addAsking = async (setId: string, emoteId: string, alias: string, role: AliasQuestion['role']) => {
     try {
       await writer.addEmote(setId, emoteId, alias);
       return alias;
     } catch (error) {
-      const retry = error instanceof WriteError && error.kind === 'refused' && !isValidAlias(alias) ? transliterate(alias) : null;
-      if (!retry) throw error;
-      await pause();
-      await writer.addEmote(setId, emoteId, retry);
-      return retry;
+      return resolveRefusal(setId, emoteId, alias, role, error);
     }
   };
+
+  /** A whole batch that failed outright counts as every emote in it failing the same way. */
+  const allFailed = (count: number, error: unknown): ItemResult[] =>
+    Array.from({ length: count }, () => ({
+      ok: false as const,
+      error: error instanceof WriteError ? error : new WriteError(reasonOf(error), 'refused'),
+    }));
 
   const record: RunRecord = {
     id: crypto.randomUUID(),
@@ -141,36 +187,68 @@ export async function executeRun(input: RunInput, writer: SetWriter, options: Ru
   const noteRename = (from: string, to: string) => {
     if (from !== to) report.renamed.push({ from, to });
   };
+  const changed = () => onRecord?.({ ...record, swaps: [...record.swaps], added: [...record.added] });
 
   if (input.mode !== 'duplicate') {
     const total = input.swaps.length;
-    for (const [i, swap] of input.swaps.entries()) {
+    let done = 0;
+    for (let start = 0; start < total; start += BATCH_SIZE) {
+      const chunk = input.swaps.slice(start, start + BATCH_SIZE);
+      let removals: ItemResult[];
       try {
-        await writer.removeEmote(record.setId, swap.fromId);
+        removals = await writer.removeEmotes(record.setId, chunk.map((s) => ({ emoteId: s.fromId, alias: s.alias })));
       } catch (error) {
-        report.failed.push({ alias: swap.alias, reason: reasonOf(error) });
+        for (const swap of chunk) report.failed.push({ alias: swap.alias, reason: reasonOf(error) });
         if (isAuth(error)) return { ...report, stopped: TOKEN_STOPPED };
-        onProgress?.(i + 1, total);
-        continue;
+        removals = allFailed(chunk.length, error);
       }
-      await pause();
-      try {
-        const alias = await addWithAlias(record.setId, swap.toId, swap.alias);
-        record.swaps.push({ fromId: swap.fromId, toId: swap.toId, alias, originalAlias: swap.alias });
-        report.swapped++;
-        noteRename(swap.alias, alias);
-      } catch (error) {
-        report.failed.push({ alias: swap.alias, reason: reasonOf(error) });
-        // The ADD half failed: put the original back so the set never ends up short.
+      const removed = chunk.filter((swap, i) => {
+        const result = removals[i]!;
+        if (!result.ok) report.failed.push({ alias: swap.alias, reason: result.error.message });
+        return result.ok;
+      });
+
+      let additions: ItemResult[] = [];
+      let stopped = false;
+      if (removed.length) {
+        await pause();
         try {
-          await pause();
-          await writer.addEmote(record.setId, swap.fromId, swap.alias);
-        } catch {
-          report.lost.push(swap.alias);
+          additions = await writer.addEmotes(record.setId, removed.map((s) => ({ emoteId: s.toId, alias: s.alias })));
+        } catch (error) {
+          additions = allFailed(removed.length, error);
+          stopped = isAuth(error);
         }
-        if (isAuth(error)) return { ...report, stopped: TOKEN_STOPPED };
       }
-      onProgress?.(i + 1, total);
+
+      for (const [i, swap] of removed.entries()) {
+        const result = additions[i]!;
+        if (result.ok) {
+          record.swaps.push({ fromId: swap.fromId, toId: swap.toId, alias: swap.alias, originalAlias: swap.alias });
+          report.swapped++;
+          continue;
+        }
+        try {
+          if (stopped) throw result.error;
+          const name = await resolveRefusal(record.setId, swap.toId, swap.alias, 'seasonal', result.error);
+          record.swaps.push({ fromId: swap.fromId, toId: swap.toId, alias: name, originalAlias: swap.alias });
+          report.swapped++;
+          noteRename(swap.alias, name);
+        } catch (error) {
+          report.failed.push({ alias: swap.alias, reason: reasonOf(error) });
+          // The ADD half failed: put the original back so the set never ends up short.
+          try {
+            await pause();
+            const name = await addAsking(record.setId, swap.fromId, swap.alias, 'normal');
+            noteRename(swap.alias, name);
+          } catch {
+            report.lost.push(swap.alias);
+          }
+        }
+      }
+      if (removed.length) changed();
+      if (stopped) return { ...report, stopped: TOKEN_STOPPED };
+      done += chunk.length;
+      onProgress?.(done, total);
       await pause();
     }
     return report;
@@ -194,38 +272,70 @@ export async function executeRun(input: RunInput, writer: SetWriter, options: Ru
     }
     record.setName = target.name;
     record.createdSet = true;
+    changed();
     await pause();
   }
 
   const swapFor = new Map(input.swaps.map((s) => [s.fromId, s]));
   const total = input.source.emotes.length;
-  for (const [i, emote] of input.source.emotes.entries()) {
-    const swap = swapFor.get(emote.id);
+  const keep = (id: string, alias: string) => {
+    // A created set is undone by deleting it; only an existing target needs the list.
+    if (!record.createdSet) record.added.push({ id, alias });
+  };
+  let done = 0;
+  for (let start = 0; start < total; start += BATCH_SIZE) {
+    const chunk = input.source.emotes.slice(start, start + BATCH_SIZE);
+    let results: ItemResult[];
     try {
-      const alias = await addWithAlias(record.setId, swap?.toId ?? emote.id, emote.alias);
-      record.added.push({ id: swap?.toId ?? emote.id, alias });
-      if (swap) report.swapped++;
-      else report.copied++;
-      noteRename(emote.alias, alias);
+      results = await writer.addEmotes(
+        record.setId,
+        chunk.map((e) => ({ emoteId: swapFor.get(e.id)?.toId ?? e.id, alias: e.alias })),
+      );
     } catch (error) {
-      report.failed.push({ alias: emote.alias, reason: reasonOf(error) });
-      if (isAuth(error)) return { ...report, stopped: TOKEN_STOPPED };
-      // The seasonal version wouldn't go in: copy the normal emote so the duplicate stays complete.
-      if (swap) {
-        try {
-          await pause();
-          const alias = await addWithAlias(record.setId, emote.id, emote.alias);
-          record.added.push({ id: emote.id, alias });
-          report.copied++;
-        } catch {
-          report.lost.push(emote.alias);
+      if (isAuth(error)) {
+        for (const emote of chunk) report.failed.push({ alias: emote.alias, reason: reasonOf(error) });
+        return { ...report, stopped: TOKEN_STOPPED };
+      }
+      results = allFailed(chunk.length, error);
+    }
+
+    for (const [i, emote] of chunk.entries()) {
+      const swap = swapFor.get(emote.id);
+      const id = swap?.toId ?? emote.id;
+      const result = results[i]!;
+      if (result.ok) {
+        keep(id, emote.alias);
+        if (swap) report.swapped++;
+        else report.copied++;
+        continue;
+      }
+      try {
+        const name = await resolveRefusal(record.setId, id, emote.alias, swap ? 'seasonal' : 'normal', result.error);
+        keep(id, name);
+        if (swap) report.swapped++;
+        else report.copied++;
+        noteRename(emote.alias, name);
+      } catch (error) {
+        report.failed.push({ alias: emote.alias, reason: reasonOf(error) });
+        if (isAuth(error)) return { ...report, stopped: TOKEN_STOPPED };
+        // The seasonal version wouldn't go in: copy the normal emote so the duplicate stays complete.
+        if (swap) {
+          try {
+            await pause();
+            const name = await addAsking(record.setId, emote.id, emote.alias, 'normal');
+            keep(emote.id, name);
+            report.copied++;
+            noteRename(emote.alias, name);
+          } catch {
+            report.lost.push(emote.alias);
+          }
         }
       }
     }
-    onProgress?.(i + 1, total);
+    if (!record.createdSet) changed();
+    done += chunk.length;
+    onProgress?.(done, total);
     await pause();
   }
-  // A created set is undone by deleting it; only an existing target needs the list.
-  if (record.createdSet) record.added = [];
   return report;
 }

@@ -46,7 +46,7 @@ export async function undoRun(record: RunRecord, writer: SetWriter, options: Und
       continue;
     }
     try {
-      await writer.removeEmote(record.setId, added.id);
+      await writer.removeEmote(record.setId, added.id, added.alias);
       report.restored++;
     } catch (error) {
       report.failed.push({ alias: added.alias, reason: reasonOf(error) });
@@ -60,7 +60,7 @@ export async function undoRun(record: RunRecord, writer: SetWriter, options: Und
       continue;
     }
     try {
-      await writer.removeEmote(record.setId, swap.toId);
+      await writer.removeEmote(record.setId, swap.toId, swap.alias);
     } catch (error) {
       report.failed.push({ alias: swap.alias, reason: reasonOf(error) });
       continue;
