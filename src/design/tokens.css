@@ -1,0 +1,107 @@
+/*
+ * Stream Desk Deck. Gunmetal chassis on a desk mat, bone and putty keycaps,
+ * one safety-orange key that commits, an amber screen for live state.
+ * Depth comes from key travel and layered shadow, never from glow.
+ */
+:root {
+  --gunmetal: #3a3d42;
+  --gunmetal-deep: #2e3135;
+  --gunmetal-edge: #222428;
+  /* The chassis side wall; darker than the mat in both themes so the deck keeps its height. */
+  --gunmetal-wall: #222428;
+  --bone: #e6e1d6;
+  --bone-wall: #b9b2a2;
+  --putty: #c9c3b5;
+  --putty-wall: #9f988a;
+  --charcoal: #2a2a2a;
+  --charcoal-deep: #171a1e;
+  --orange: #ff5f1f;
+  --orange-wall: #b33e0f;
+  --amber: #ffb000;
+  --amber-dim: #8a5f00;
+  --amber-glass: #1a1207;
+
+  /* The mat the deck sits on, and the ink printed on it. */
+  --mat: #cfc9bc;
+  --mat-line: #b8b1a3;
+  --ink: #2a2a2a;
+  --ink-soft: #55524b;
+
+  --font-display: 'Archivo Variable', 'Archivo', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --key-radius: 10px;
+  --key-travel: 5px;
+  --key-wall-bone: 0 var(--key-travel) 0 var(--bone-wall), 0 calc(var(--key-travel) + 3px) 8px rgb(0 0 0 / 0.28);
+  --key-wall-putty: 0 var(--key-travel) 0 var(--putty-wall), 0 calc(var(--key-travel) + 3px) 8px rgb(0 0 0 / 0.28);
+  --key-wall-pressed: 0 1px 0 var(--bone-wall), 0 2px 4px rgb(0 0 0 / 0.24);
+  --chassis-shadow: 0 2px 0 #4a4e54 inset, 0 18px 0 var(--gunmetal-wall), 0 30px 40px rgb(0 0 0 / 0.35);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --gutter: clamp(16px, 4vw, 60px);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mat: #171a1e;
+    --mat-line: #2a2e33;
+    --ink: #e6e1d6;
+    --ink-soft: #b3ad9f;
+    --gunmetal-wall: #0a0b0d;
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--mat);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-stretch: 100%;
+  font-size: 17px;
+  line-height: 1.5;
+  caret-color: var(--orange);
+  scrollbar-color: var(--gunmetal) var(--mat);
+}
+
+::selection {
+  background: var(--amber);
+  color: var(--amber-glass);
+}
+
+:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: 3px;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 2px;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

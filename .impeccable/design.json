@@ -1,0 +1,768 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T00:00:00Z",
+  "title": "Design System: Seasonal Emote Replacer",
+  "extensions": {
+    "colorMeta": {
+      "orange": {
+        "role": "primary",
+        "displayName": "Safety Orange",
+        "canonical": "#ff5f1f",
+        "purpose": "The one committing key per page.",
+        "tonalRamp": [
+          "oklch(15% 0.207 39.1)",
+          "oklch(26.4% 0.207 39.1)",
+          "oklch(37.9% 0.207 39.1)",
+          "oklch(49.3% 0.207 39.1)",
+          "oklch(60.7% 0.207 39.1)",
+          "oklch(72.1% 0.207 39.1)",
+          "oklch(83.6% 0.207 39.1)",
+          "oklch(95% 0.207 39.1)"
+        ]
+      },
+      "orange-wall": {
+        "role": "primary",
+        "displayName": "Burnt Orange Wall",
+        "canonical": "#b33e0f",
+        "purpose": "Side wall of the orange key.",
+        "tonalRamp": [
+          "oklch(15% 0.161 38.7)",
+          "oklch(26.4% 0.161 38.7)",
+          "oklch(37.9% 0.161 38.7)",
+          "oklch(49.3% 0.161 38.7)",
+          "oklch(60.7% 0.161 38.7)",
+          "oklch(72.1% 0.161 38.7)",
+          "oklch(83.6% 0.161 38.7)",
+          "oklch(95% 0.161 38.7)"
+        ]
+      },
+      "orange-ink": {
+        "role": "primary",
+        "displayName": "Orange Ink",
+        "canonical": "#1d0d04",
+        "purpose": "Legend printed on the orange key.",
+        "tonalRamp": [
+          "oklch(15% 0.033 52.6)",
+          "oklch(26.4% 0.033 52.6)",
+          "oklch(37.9% 0.033 52.6)",
+          "oklch(49.3% 0.033 52.6)",
+          "oklch(60.7% 0.033 52.6)",
+          "oklch(72.1% 0.033 52.6)",
+          "oklch(83.6% 0.033 52.6)",
+          "oklch(95% 0.033 52.6)"
+        ]
+      },
+      "amber": {
+        "role": "secondary",
+        "displayName": "Amber Glass",
+        "canonical": "#ffb000",
+        "purpose": "Live state only: readouts, lit lamps, checked detent, focus, selection.",
+        "tonalRamp": [
+          "oklch(15% 0.17 76.4)",
+          "oklch(26.4% 0.17 76.4)",
+          "oklch(37.9% 0.17 76.4)",
+          "oklch(49.3% 0.17 76.4)",
+          "oklch(60.7% 0.17 76.4)",
+          "oklch(72.1% 0.17 76.4)",
+          "oklch(83.6% 0.17 76.4)",
+          "oklch(95% 0.17 76.4)"
+        ]
+      },
+      "amber-dim": {
+        "role": "secondary",
+        "displayName": "Dim Amber",
+        "canonical": "#8a5f00",
+        "purpose": "Rim of a lit lamp.",
+        "tonalRamp": [
+          "oklch(15% 0.108 77.9)",
+          "oklch(26.4% 0.108 77.9)",
+          "oklch(37.9% 0.108 77.9)",
+          "oklch(49.3% 0.108 77.9)",
+          "oklch(60.7% 0.108 77.9)",
+          "oklch(72.1% 0.108 77.9)",
+          "oklch(83.6% 0.108 77.9)",
+          "oklch(95% 0.108 77.9)"
+        ]
+      },
+      "amber-glass": {
+        "role": "secondary",
+        "displayName": "Amber Glass Ink",
+        "canonical": "#1a1207",
+        "purpose": "Unlit segment ink on amber glass.",
+        "tonalRamp": [
+          "oklch(15% 0.024 75)",
+          "oklch(26.4% 0.024 75)",
+          "oklch(37.9% 0.024 75)",
+          "oklch(49.3% 0.024 75)",
+          "oklch(60.7% 0.024 75)",
+          "oklch(72.1% 0.024 75)",
+          "oklch(83.6% 0.024 75)",
+          "oklch(95% 0.024 75)"
+        ]
+      },
+      "gunmetal": {
+        "role": "neutral",
+        "displayName": "Gunmetal",
+        "canonical": "#3a3d42",
+        "purpose": "Chassis, plates, strips, trays.",
+        "tonalRamp": [
+          "oklch(15% 0.01 260.7)",
+          "oklch(26.4% 0.01 260.7)",
+          "oklch(37.9% 0.01 260.7)",
+          "oklch(49.3% 0.01 260.7)",
+          "oklch(60.7% 0.01 260.7)",
+          "oklch(72.1% 0.01 260.7)",
+          "oklch(83.6% 0.01 260.7)",
+          "oklch(95% 0.01 260.7)"
+        ]
+      },
+      "gunmetal-deep": {
+        "role": "neutral",
+        "displayName": "Gunmetal Deep",
+        "canonical": "#2e3135",
+        "purpose": "Darker casting.",
+        "tonalRamp": [
+          "oklch(15% 0.008 255.6)",
+          "oklch(26.4% 0.008 255.6)",
+          "oklch(37.9% 0.008 255.6)",
+          "oklch(49.3% 0.008 255.6)",
+          "oklch(60.7% 0.008 255.6)",
+          "oklch(72.1% 0.008 255.6)",
+          "oklch(83.6% 0.008 255.6)",
+          "oklch(95% 0.008 255.6)"
+        ]
+      },
+      "gunmetal-edge": {
+        "role": "neutral",
+        "displayName": "Gunmetal Edge",
+        "canonical": "#222428",
+        "purpose": "Screen bezels, knob ring.",
+        "tonalRamp": [
+          "oklch(15% 0.008 264.4)",
+          "oklch(26.4% 0.008 264.4)",
+          "oklch(37.9% 0.008 264.4)",
+          "oklch(49.3% 0.008 264.4)",
+          "oklch(60.7% 0.008 264.4)",
+          "oklch(72.1% 0.008 264.4)",
+          "oklch(83.6% 0.008 264.4)",
+          "oklch(95% 0.008 264.4)"
+        ]
+      },
+      "gunmetal-wall": {
+        "role": "neutral",
+        "displayName": "Chassis Wall",
+        "canonical": "#222428",
+        "purpose": "18px wall under gunmetal objects (light mat).",
+        "tonalRamp": [
+          "oklch(15% 0.008 264.4)",
+          "oklch(26.4% 0.008 264.4)",
+          "oklch(37.9% 0.008 264.4)",
+          "oklch(49.3% 0.008 264.4)",
+          "oklch(60.7% 0.008 264.4)",
+          "oklch(72.1% 0.008 264.4)",
+          "oklch(83.6% 0.008 264.4)",
+          "oklch(95% 0.008 264.4)"
+        ]
+      },
+      "gunmetal-wall-dark": {
+        "role": "neutral",
+        "displayName": "Chassis Wall (dark mat)",
+        "canonical": "#0a0b0d",
+        "purpose": "Wall on the charcoal mat; always darker than the mat.",
+        "tonalRamp": [
+          "oklch(15% 0.005 264.5)",
+          "oklch(26.4% 0.005 264.5)",
+          "oklch(37.9% 0.005 264.5)",
+          "oklch(49.3% 0.005 264.5)",
+          "oklch(60.7% 0.005 264.5)",
+          "oklch(72.1% 0.005 264.5)",
+          "oklch(83.6% 0.005 264.5)",
+          "oklch(95% 0.005 264.5)"
+        ]
+      },
+      "chassis-highlight": {
+        "role": "neutral",
+        "displayName": "Chassis Highlight",
+        "canonical": "#4a4e54",
+        "purpose": "Inset top light on chassis, bezel lip.",
+        "tonalRamp": [
+          "oklch(15% 0.011 258.4)",
+          "oklch(26.4% 0.011 258.4)",
+          "oklch(37.9% 0.011 258.4)",
+          "oklch(49.3% 0.011 258.4)",
+          "oklch(60.7% 0.011 258.4)",
+          "oklch(72.1% 0.011 258.4)",
+          "oklch(83.6% 0.011 258.4)",
+          "oklch(95% 0.011 258.4)"
+        ]
+      },
+      "plate-rule": {
+        "role": "neutral",
+        "displayName": "Plate Rule",
+        "canonical": "#50545a",
+        "purpose": "Dividers between spec-plate rows.",
+        "tonalRamp": [
+          "oklch(15% 0.011 258.4)",
+          "oklch(26.4% 0.011 258.4)",
+          "oklch(37.9% 0.011 258.4)",
+          "oklch(49.3% 0.011 258.4)",
+          "oklch(60.7% 0.011 258.4)",
+          "oklch(72.1% 0.011 258.4)",
+          "oklch(83.6% 0.011 258.4)",
+          "oklch(95% 0.011 258.4)"
+        ]
+      },
+      "bone": {
+        "role": "neutral",
+        "displayName": "Bone",
+        "canonical": "#e6e1d6",
+        "purpose": "Default keycap, field, kbd, bone plate; text on gunmetal.",
+        "tonalRamp": [
+          "oklch(15% 0.016 86.4)",
+          "oklch(26.4% 0.016 86.4)",
+          "oklch(37.9% 0.016 86.4)",
+          "oklch(49.3% 0.016 86.4)",
+          "oklch(60.7% 0.016 86.4)",
+          "oklch(72.1% 0.016 86.4)",
+          "oklch(83.6% 0.016 86.4)",
+          "oklch(95% 0.016 86.4)"
+        ]
+      },
+      "bone-wall": {
+        "role": "neutral",
+        "displayName": "Bone Wall",
+        "canonical": "#b9b2a2",
+        "purpose": "Side wall of bone caps.",
+        "tonalRamp": [
+          "oklch(15% 0.024 87.2)",
+          "oklch(26.4% 0.024 87.2)",
+          "oklch(37.9% 0.024 87.2)",
+          "oklch(49.3% 0.024 87.2)",
+          "oklch(60.7% 0.024 87.2)",
+          "oklch(72.1% 0.024 87.2)",
+          "oklch(83.6% 0.024 87.2)",
+          "oklch(95% 0.024 87.2)"
+        ]
+      },
+      "bone-soft": {
+        "role": "neutral",
+        "displayName": "Bone Soft",
+        "canonical": "#d6d0c4",
+        "purpose": "Supporting text on gunmetal.",
+        "tonalRamp": [
+          "oklch(15% 0.018 84.6)",
+          "oklch(26.4% 0.018 84.6)",
+          "oklch(37.9% 0.018 84.6)",
+          "oklch(49.3% 0.018 84.6)",
+          "oklch(60.7% 0.018 84.6)",
+          "oklch(72.1% 0.018 84.6)",
+          "oklch(83.6% 0.018 84.6)",
+          "oklch(95% 0.018 84.6)"
+        ]
+      },
+      "putty": {
+        "role": "neutral",
+        "displayName": "Putty",
+        "canonical": "#c9c3b5",
+        "purpose": "Alternate keycap tone.",
+        "tonalRamp": [
+          "oklch(15% 0.02 87.5)",
+          "oklch(26.4% 0.02 87.5)",
+          "oklch(37.9% 0.02 87.5)",
+          "oklch(49.3% 0.02 87.5)",
+          "oklch(60.7% 0.02 87.5)",
+          "oklch(72.1% 0.02 87.5)",
+          "oklch(83.6% 0.02 87.5)",
+          "oklch(95% 0.02 87.5)"
+        ]
+      },
+      "putty-wall": {
+        "role": "neutral",
+        "displayName": "Putty Wall",
+        "canonical": "#9f988a",
+        "purpose": "Side wall of putty caps.",
+        "tonalRamp": [
+          "oklch(15% 0.022 84.6)",
+          "oklch(26.4% 0.022 84.6)",
+          "oklch(37.9% 0.022 84.6)",
+          "oklch(49.3% 0.022 84.6)",
+          "oklch(60.7% 0.022 84.6)",
+          "oklch(72.1% 0.022 84.6)",
+          "oklch(83.6% 0.022 84.6)",
+          "oklch(95% 0.022 84.6)"
+        ]
+      },
+      "charcoal": {
+        "role": "neutral",
+        "displayName": "Charcoal",
+        "canonical": "#2a2a2a",
+        "purpose": "Cap legends, field border, state marks.",
+        "tonalRamp": [
+          "oklch(15% 0 89.9)",
+          "oklch(26.4% 0 89.9)",
+          "oklch(37.9% 0 89.9)",
+          "oklch(49.3% 0 89.9)",
+          "oklch(60.7% 0 89.9)",
+          "oklch(72.1% 0 89.9)",
+          "oklch(83.6% 0 89.9)",
+          "oklch(95% 0 89.9)"
+        ]
+      },
+      "charcoal-deep": {
+        "role": "neutral",
+        "displayName": "Charcoal Deep",
+        "canonical": "#171a1e",
+        "purpose": "Deepest neutral; equals the dark mat.",
+        "tonalRamp": [
+          "oklch(15% 0.009 255.6)",
+          "oklch(26.4% 0.009 255.6)",
+          "oklch(37.9% 0.009 255.6)",
+          "oklch(49.3% 0.009 255.6)",
+          "oklch(60.7% 0.009 255.6)",
+          "oklch(72.1% 0.009 255.6)",
+          "oklch(83.6% 0.009 255.6)",
+          "oklch(95% 0.009 255.6)"
+        ]
+      },
+      "mat": {
+        "role": "neutral",
+        "displayName": "Putty Desk Mat",
+        "canonical": "#cfc9bc",
+        "purpose": "Page background, light scheme.",
+        "tonalRamp": [
+          "oklch(15% 0.019 86.2)",
+          "oklch(26.4% 0.019 86.2)",
+          "oklch(37.9% 0.019 86.2)",
+          "oklch(49.3% 0.019 86.2)",
+          "oklch(60.7% 0.019 86.2)",
+          "oklch(72.1% 0.019 86.2)",
+          "oklch(83.6% 0.019 86.2)",
+          "oklch(95% 0.019 86.2)"
+        ]
+      },
+      "mat-line": {
+        "role": "neutral",
+        "displayName": "Mat Line",
+        "canonical": "#b8b1a3",
+        "purpose": "Footer rule, light scheme.",
+        "tonalRamp": [
+          "oklch(15% 0.021 84.6)",
+          "oklch(26.4% 0.021 84.6)",
+          "oklch(37.9% 0.021 84.6)",
+          "oklch(49.3% 0.021 84.6)",
+          "oklch(60.7% 0.021 84.6)",
+          "oklch(72.1% 0.021 84.6)",
+          "oklch(83.6% 0.021 84.6)",
+          "oklch(95% 0.021 84.6)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#2a2a2a",
+        "purpose": "Text on the mat, light scheme.",
+        "tonalRamp": [
+          "oklch(15% 0 89.9)",
+          "oklch(26.4% 0 89.9)",
+          "oklch(37.9% 0 89.9)",
+          "oklch(49.3% 0 89.9)",
+          "oklch(60.7% 0 89.9)",
+          "oklch(72.1% 0 89.9)",
+          "oklch(83.6% 0 89.9)",
+          "oklch(95% 0 89.9)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "#55524b",
+        "purpose": "Ledes, captions, labels on the mat.",
+        "tonalRamp": [
+          "oklch(15% 0.012 87.5)",
+          "oklch(26.4% 0.012 87.5)",
+          "oklch(37.9% 0.012 87.5)",
+          "oklch(49.3% 0.012 87.5)",
+          "oklch(60.7% 0.012 87.5)",
+          "oklch(72.1% 0.012 87.5)",
+          "oklch(83.6% 0.012 87.5)",
+          "oklch(95% 0.012 87.5)"
+        ]
+      },
+      "mat-dark": {
+        "role": "neutral",
+        "displayName": "Charcoal Desk Mat",
+        "canonical": "#171a1e",
+        "purpose": "Page background, dark scheme.",
+        "tonalRamp": [
+          "oklch(15% 0.009 255.6)",
+          "oklch(26.4% 0.009 255.6)",
+          "oklch(37.9% 0.009 255.6)",
+          "oklch(49.3% 0.009 255.6)",
+          "oklch(60.7% 0.009 255.6)",
+          "oklch(72.1% 0.009 255.6)",
+          "oklch(83.6% 0.009 255.6)",
+          "oklch(95% 0.009 255.6)"
+        ]
+      },
+      "mat-line-dark": {
+        "role": "neutral",
+        "displayName": "Mat Line (dark)",
+        "canonical": "#2a2e33",
+        "purpose": "Footer rule, dark scheme.",
+        "tonalRamp": [
+          "oklch(15% 0.011 254)",
+          "oklch(26.4% 0.011 254)",
+          "oklch(37.9% 0.011 254)",
+          "oklch(49.3% 0.011 254)",
+          "oklch(60.7% 0.011 254)",
+          "oklch(72.1% 0.011 254)",
+          "oklch(83.6% 0.011 254)",
+          "oklch(95% 0.011 254)"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Ink (dark)",
+        "canonical": "#e6e1d6",
+        "purpose": "Text on the mat, dark scheme.",
+        "tonalRamp": [
+          "oklch(15% 0.016 86.4)",
+          "oklch(26.4% 0.016 86.4)",
+          "oklch(37.9% 0.016 86.4)",
+          "oklch(49.3% 0.016 86.4)",
+          "oklch(60.7% 0.016 86.4)",
+          "oklch(72.1% 0.016 86.4)",
+          "oklch(83.6% 0.016 86.4)",
+          "oklch(95% 0.016 86.4)"
+        ]
+      },
+      "ink-soft-dark": {
+        "role": "neutral",
+        "displayName": "Soft Ink (dark)",
+        "canonical": "#b3ad9f",
+        "purpose": "Soft text on the mat, dark scheme.",
+        "tonalRamp": [
+          "oklch(15% 0.021 87.5)",
+          "oklch(26.4% 0.021 87.5)",
+          "oklch(37.9% 0.021 87.5)",
+          "oklch(49.3% 0.021 87.5)",
+          "oklch(60.7% 0.021 87.5)",
+          "oklch(72.1% 0.021 87.5)",
+          "oklch(83.6% 0.021 87.5)",
+          "oklch(95% 0.021 87.5)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The one page headline on the mat. Archivo 900 at width 112%."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings below the deck. Archivo 850 at width 110%."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Row titles on the spec plate. Archivo 800 at width 108%."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "Header wordmark. Archivo 850 at width 115%."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All running text, on the mat or on gunmetal."
+      },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "Section ledes in soft ink, 60ch."
+      },
+      "legend": {
+        "displayName": "Legend",
+        "purpose": "Uppercase words printed on keys (orange key, mode keys, gunmetal keys, function keys)."
+      },
+      "readout": {
+        "displayName": "Readout",
+        "purpose": "Uppercase tabular text on amber glass."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase field labels and knob detents in soft ink or knob ink."
+      },
+      "nav": {
+        "displayName": "Nav",
+        "purpose": "Header links; 12px and 0.04em on phones."
+      }
+    },
+    "shadows": [
+      {
+        "name": "key-wall-bone",
+        "value": "0 5px 0 var(--bone-wall), 0 8px 8px rgb(0 0 0 / 0.28)",
+        "purpose": "Resting bone keycap, mode key, function key."
+      },
+      {
+        "name": "key-wall-putty",
+        "value": "0 5px 0 var(--putty-wall), 0 8px 8px rgb(0 0 0 / 0.28)",
+        "purpose": "Resting putty keycap."
+      },
+      {
+        "name": "key-wall-pressed",
+        "value": "0 1px 0 var(--bone-wall), 0 2px 4px rgb(0 0 0 / 0.24)",
+        "purpose": "Pressed cap or selected mode key, with translateY(4px)."
+      },
+      {
+        "name": "orange-key-wall",
+        "value": "0 8px 0 var(--orange-wall), 0 12px 16px rgb(0 0 0 / 0.35)",
+        "purpose": "The committing key at rest."
+      },
+      {
+        "name": "orange-key-pressed",
+        "value": "0 1px 0 var(--orange-wall), 0 3px 6px rgb(0 0 0 / 0.3)",
+        "purpose": "The committing key pressed, with translateY(7px)."
+      },
+      {
+        "name": "gunmetal-key-wall",
+        "value": "0 5px 0 var(--gunmetal-wall), 0 8px 10px rgb(0 0 0 / 0.25)",
+        "purpose": "Secondary gunmetal key at rest; pressed travels 4px."
+      },
+      {
+        "name": "chassis",
+        "value": "0 2px 0 #4a4e54 inset, 0 18px 0 var(--gunmetal-wall), 0 30px 40px rgb(0 0 0 / 0.35)",
+        "purpose": "Deck, spec plate, function strip, readout bezel."
+      },
+      {
+        "name": "bezel-recess",
+        "value": "inset 0 2px 3px rgb(0 0 0 / 0.5), 0 1px 0 #4a4e54",
+        "purpose": "Amber screen bezel set into the chassis."
+      },
+      {
+        "name": "glass",
+        "value": "inset 0 0 0 1px rgb(0 0 0 / 0.18), inset 0 6px 10px rgb(0 0 0 / 0.12)",
+        "purpose": "Amber glass surface."
+      },
+      {
+        "name": "key-well",
+        "value": "inset 0 3px 0 rgb(0 0 0 / 0.08)",
+        "purpose": "Deck field."
+      },
+      {
+        "name": "cap-dish",
+        "value": "inset 0 1px 2px rgb(0 0 0 / 0.12)",
+        "purpose": "Dished top of a PBT keycap, on a 7% inset rim."
+      },
+      {
+        "name": "knob",
+        "value": "0 6px 0 #18191c, 0 10px 18px rgb(0 0 0 / 0.4)",
+        "purpose": "Knob dial ring."
+      },
+      {
+        "name": "bone-plate",
+        "value": "0 4px 0 var(--bone-wall), 0 8px 14px rgb(0 0 0 / 0.18)",
+        "purpose": "Serious notices printed in ink."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The only easing; every travel, rotation and fade."
+      },
+      {
+        "name": "key-travel-fast",
+        "value": "120ms",
+        "purpose": "Orange key, mode keys, gunmetal keys."
+      },
+      {
+        "name": "key-travel-cap",
+        "value": "140ms",
+        "purpose": "Keycap press."
+      },
+      {
+        "name": "detent-fade",
+        "value": "160ms",
+        "purpose": "Knob detent opacity."
+      },
+      {
+        "name": "knob-turn",
+        "value": "260ms",
+        "purpose": "Knob face rotation between detents (120-degree sweep)."
+      },
+      {
+        "name": "flip-interval",
+        "value": "60ms",
+        "purpose": "Delay between consecutive keys in the sequential flip, reading order; reversed when turning back."
+      },
+      {
+        "name": "auto-turn",
+        "value": "800ms",
+        "purpose": "One automatic turn to the current season after the preset loads, unless the visitor touched the knob."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "All transitions and animations collapse; the content end state is shown directly (deck opens on the season, all keys flipped, no auto-turn)."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "640px"
+      },
+      {
+        "name": "strip",
+        "value": "860px"
+      },
+      {
+        "name": "guide",
+        "value": "960px"
+      },
+      {
+        "name": "first-viewport",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Action Key",
+      "kind": "button",
+      "refersTo": "action-key",
+      "description": "The safety-orange committing key. Exactly one per page.",
+      "html": "<button class=\"ds-action-key\" type=\"button\"><span class=\"ds-action-legend\">Make seasonal</span></button>",
+      "css": ".ds-action-key { display: grid; place-items: center; min-width: 150px; min-height: 150px; padding: 18px; border: 0; border-radius: 14px; background: var(--orange); color: #1d0d04; box-shadow: 0 8px 0 var(--orange-wall), 0 12px 16px rgb(0 0 0 / 0.35); cursor: pointer; transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out); } .ds-action-key:hover { filter: brightness(1.04); } .ds-action-key:active { transform: translateY(7px); box-shadow: 0 1px 0 var(--orange-wall), 0 3px 6px rgb(0 0 0 / 0.3); } .ds-action-key:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; } .ds-action-legend { font-family: var(--font-mono); font-weight: 700; font-size: 17px; line-height: 1.25; letter-spacing: 0.06em; text-transform: uppercase; text-align: center; }"
+    },
+    {
+      "name": "Gunmetal Key",
+      "kind": "button",
+      "refersTo": "gunmetal-key",
+      "description": "Secondary action or link as a gunmetal key.",
+      "html": "<a class=\"ds-gunmetal-key\" href=\"#\">Compare two of your sets</a>",
+      "css": ".ds-gunmetal-key { display: inline-flex; align-items: center; height: 52px; padding: 0 22px; border-radius: 10px; background: var(--gunmetal); color: var(--bone); box-shadow: 0 5px 0 var(--gunmetal-wall), 0 8px 10px rgb(0 0 0 / 0.25); font-family: var(--font-mono); font-weight: 700; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out); } .ds-gunmetal-key:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--gunmetal-wall), 0 2px 4px rgb(0 0 0 / 0.25); } .ds-gunmetal-key:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }"
+    },
+    {
+      "name": "Mode Keys",
+      "kind": "chip",
+      "refersTo": "mode-key",
+      "description": "Bone keys in a gunmetal tray; the selected key sits pressed with its lamp lit amber.",
+      "html": "<div class=\"ds-mode-tray\" role=\"tablist\"><button class=\"ds-mode-key\" role=\"tab\" aria-selected=\"true\">Chrome / Edge</button><button class=\"ds-mode-key\" role=\"tab\" aria-selected=\"false\">Firefox</button></div>",
+      "css": ".ds-mode-tray { display: inline-flex; gap: 10px; padding: 10px; border-radius: 16px; background: var(--gunmetal); box-shadow: 0 6px 0 var(--gunmetal-edge), 0 10px 18px rgb(0 0 0 / 0.25); } .ds-mode-key { display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 18px; border: 0; border-radius: 9px; background: var(--bone); color: var(--charcoal); box-shadow: var(--key-wall-bone); font-family: var(--font-mono); font-weight: 700; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out); } .ds-mode-key::before { content: ''; width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--charcoal); } .ds-mode-key[aria-selected='true'] { transform: translateY(4px); box-shadow: var(--key-wall-pressed); } .ds-mode-key[aria-selected='true']::before { background: var(--amber); border-color: var(--amber-dim); } .ds-mode-key:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }"
+    },
+    {
+      "name": "Deck Field",
+      "kind": "input",
+      "refersTo": "deck-field",
+      "description": "Labelled input set into the deck like a key well; invalid state is a dashed border.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-ch\">Your Twitch channel</label><input id=\"ds-ch\" class=\"ds-field-input\" placeholder=\"channel name\"></div>",
+      "css": ".ds-field { display: grid; gap: 8px; } .ds-field-label { font-family: var(--font-mono); font-weight: 500; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); } .ds-field-input { width: 100%; height: 60px; padding: 0 18px; border: 3px solid var(--charcoal); border-radius: 10px; background: var(--bone); color: var(--charcoal); font-family: var(--font-mono); font-weight: 500; font-size: 20px; box-shadow: inset 0 3px 0 rgb(0 0 0 / 0.08); } .ds-field-input::placeholder { color: #6d685e; } .ds-field-input:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; } .ds-field-input[aria-invalid='true'] { border-style: dashed; }"
+    },
+    {
+      "name": "Keycap",
+      "kind": "custom",
+      "refersTo": "keycap",
+      "description": "Display-only emote on a PBT cap. States: idle, pressed, flipped (corner dot), unmapped (dashed rim, art at 35%).",
+      "html": "<div class=\"ds-keycaps\"><div class=\"ds-keycap\"><span class=\"ds-keycap-legend\">1</span></div><div class=\"ds-keycap\" data-state=\"flipped\"><span class=\"ds-keycap-legend\">2</span></div><div class=\"ds-keycap\" data-tone=\"putty\" data-pressed><span class=\"ds-keycap-legend\">3</span></div><div class=\"ds-keycap\" data-state=\"unmapped\"><span class=\"ds-keycap-legend\">4</span></div></div>",
+      "css": ".ds-keycaps { display: grid; grid-template-columns: repeat(4, 72px); gap: 12px; padding: 16px 16px 21px; border-radius: 18px; background: var(--gunmetal); } .ds-keycap { position: relative; aspect-ratio: 1; border-radius: var(--key-radius); background: var(--bone); box-shadow: var(--key-wall-bone); transition: transform 140ms var(--ease-out), box-shadow 140ms var(--ease-out); } .ds-keycap[data-tone='putty'] { background: var(--putty); box-shadow: var(--key-wall-putty); } .ds-keycap::before { content: ''; position: absolute; inset: 7%; border-radius: 7px; box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.12); } .ds-keycap[data-pressed] { transform: translateY(4px); box-shadow: var(--key-wall-pressed); } .ds-keycap[data-state='unmapped']::before { border: 2px dashed var(--charcoal); opacity: 0.45; } .ds-keycap[data-state='flipped']::after { content: ''; position: absolute; top: 7%; right: 8%; width: 7px; height: 7px; border-radius: 50%; background: var(--charcoal); } .ds-keycap-legend { position: absolute; top: 6%; left: 9%; font-family: var(--font-mono); font-weight: 500; font-size: 11px; line-height: 1; color: var(--charcoal); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Amber Screen",
+      "kind": "custom",
+      "refersTo": "amber-screen",
+      "description": "The recessed live readout. One value at a time, polite live region.",
+      "html": "<div class=\"ds-bezel\"><div class=\"ds-glass\" role=\"status\">Halloween · 12/24</div></div>",
+      "css": ".ds-bezel { padding: 8px; border-radius: 10px; background: var(--gunmetal-edge); box-shadow: inset 0 2px 3px rgb(0 0 0 / 0.5), 0 1px 0 #4a4e54; } .ds-glass { min-height: 64px; display: flex; align-items: center; padding: 0 22px; border-radius: 5px; background: var(--amber); color: var(--amber-glass); font-family: var(--font-mono); font-weight: 700; font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18), inset 0 6px 10px rgb(0 0 0 / 0.12); }"
+    },
+    {
+      "name": "Knob",
+      "kind": "custom",
+      "refersTo": "knob-dial",
+      "description": "Knurled aluminium knob as a radio group; the checked detent's tick fills amber.",
+      "html": "<div class=\"ds-knob\" role=\"radiogroup\" aria-label=\"Season\"><div class=\"ds-dial\"><div class=\"ds-face\"><span class=\"ds-pointer\"></span></div></div><div class=\"ds-detents\"><button class=\"ds-detent\" role=\"radio\" aria-checked=\"false\"><span class=\"ds-tick\"></span>Normal</button><button class=\"ds-detent\" role=\"radio\" aria-checked=\"true\"><span class=\"ds-tick\"></span>Halloween</button><button class=\"ds-detent\" role=\"radio\" aria-checked=\"false\"><span class=\"ds-tick\"></span>Winter</button></div></div>",
+      "css": ".ds-knob { display: inline-grid; justify-items: center; gap: 14px; padding: 20px; border-radius: 18px; background: var(--gunmetal); } .ds-dial { width: 130px; aspect-ratio: 1; border-radius: 50%; padding: 9px; background: var(--gunmetal-edge); box-shadow: 0 6px 0 #18191c, 0 10px 18px rgb(0 0 0 / 0.4); } .ds-face { position: relative; width: 100%; height: 100%; border-radius: 50%; background: repeating-conic-gradient(#8a8e94 0 2.5deg, #5c5f65 2.5deg 5deg); box-shadow: inset 0 1px 1px rgb(255 255 255 / 0.3), inset 0 -2px 3px rgb(0 0 0 / 0.45); transition: transform 260ms var(--ease-out); } .ds-face::before { content: ''; position: absolute; inset: 11%; border-radius: 50%; background: radial-gradient(circle at 34% 28%, #a9adb3 0%, #7c8086 38%, #4d5056 100%); box-shadow: 0 2px 3px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.35); } .ds-pointer { position: absolute; z-index: 1; top: 17%; left: 50%; width: 6px; height: 20%; margin-left: -3px; border-radius: 3px; background: var(--bone); } .ds-detents { display: flex; gap: 4px; } .ds-detent { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--bone); font-family: var(--font-mono); font-weight: 500; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; opacity: 0.74; transition: opacity 160ms var(--ease-out); } .ds-detent:hover { opacity: 0.9; } .ds-detent[aria-checked='true'] { opacity: 1; } .ds-detent:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; } .ds-tick { width: 8px; height: 8px; border-radius: 50%; border: 2px solid currentColor; } .ds-detent[aria-checked='true'] .ds-tick { background: var(--amber); border-color: var(--amber); }"
+    },
+    {
+      "name": "Bone Plate",
+      "kind": "card",
+      "refersTo": "bone-plate",
+      "description": "Serious notice printed in ink. How the system warns without amber or orange.",
+      "html": "<p class=\"ds-bone-plate\"><strong>Anyone with this token can change your emote sets.</strong> Don’t share it or paste it anywhere else. This tool keeps it in your browser and only ever sends it to 7TV.</p>",
+      "css": ".ds-bone-plate { margin: 0; max-width: 64ch; padding: 18px 22px; border-radius: 12px; background: var(--bone); color: var(--charcoal); box-shadow: 0 4px 0 var(--bone-wall), 0 8px 14px rgb(0 0 0 / 0.18); font-family: var(--font-display); font-size: 17px; line-height: 1.5; } .ds-bone-plate strong { font-weight: 800; }"
+    },
+    {
+      "name": "Site Header",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Wordmark left, mono uppercase links right with a currentColor rule on hover.",
+      "html": "<header class=\"ds-header\"><a class=\"ds-wordmark\" href=\"#\">Seasonal Emote Replacer</a><nav class=\"ds-nav\"><a href=\"#\">Token guide</a><a href=\"#\">Compare sets</a></nav></header>",
+      "css": ".ds-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 32px; padding: 22px var(--gutter); background: var(--mat); color: var(--ink); } .ds-wordmark { font-family: var(--font-display); font-weight: 850; font-stretch: 115%; font-size: 22px; letter-spacing: -0.01em; text-decoration: none; color: inherit; } .ds-nav { display: flex; gap: 6px 26px; font-family: var(--font-mono); font-weight: 500; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; } .ds-nav a { color: inherit; text-decoration: none; padding: 6px 0; border-bottom: 2px solid transparent; } .ds-nav a:hover { border-bottom-color: currentColor; } .ds-nav a:focus-visible, .ds-wordmark:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Stream Desk Deck",
+    "overview": "The product is a piece of creator hardware sitting on a desk mat. The streamer's emotes are printed on bone and putty PBT keycaps, the season is a knurled aluminium knob that clicks through detents, a recessed amber screen reports what is live, and one safety-orange key commits. Every surface is either the mat (where the explanation and body copy live) or a gunmetal object set on it (where the controls, readouts and specification live). Nothing floats. Depth is physical: a key has a wall, travels when pressed, and casts a short layered shadow on the chassis; the chassis has its own taller wall and casts on the mat.\n\nDensity is instrument-like rather than editorial. A page shows one object at one scale, with prose beside or below it on the mat. Type is a two-voice system: Archivo at heavy weights and widened stretch for anything said to the visitor, JetBrains Mono for anything printed on the hardware (legends, labels, readouts, nav). The world is the same in both colour schemes; only the mat and its ink change, and the chassis wall darkens so the deck keeps its height on a charcoal mat.\n\nLater Operate screens (Replace, Compare, Review) inherit this world as-is: the knob for one-of-many and continuous choices, keycaps for emotes, the amber screen for live progress and counts, and exactly one orange key for the run that changes a set.",
+    "keyCharacteristics": [
+      "Gunmetal objects on a putty (light) or deep charcoal (dark) desk mat.",
+      "Bone and putty keycaps with mono legends; depth from key travel (5px) and layered shadow.",
+      "Safety orange on the one committing action per page; amber only for live state.",
+      "State that survives without hue: dashed rim, corner dot, filled versus hollow tick, pressed travel.",
+      "Archivo wide and heavy for display; JetBrains Mono for every printed legend.",
+      "No glow, no decorative gradients, no floating cards."
+    ],
+    "rules": [
+      {
+        "name": "The One Orange Key Rule",
+        "body": "A page has exactly one orange surface: the key that commits the action the page exists for. Secondary actions are gunmetal keys or bone mode keys. If a second thing wants to be orange, it is not the commit.",
+        "section": "colors"
+      },
+      {
+        "name": "The Amber Is Live Rule",
+        "body": "Amber means \"this is the current, live state\": a readout, a lit lamp, a checked detent, focus. It never carries warnings, errors or emphasis. A serious notice is a bone plate printed in ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The State Without Hue Rule",
+        "body": "Every state must survive in greyscale. Flipped keys carry a charcoal corner dot; unmapped keys a dashed charcoal rim with the art stepped back to 35%; an invalid field a dashed border; a checked detent a filled tick against hollow ones; a selected mode key sits pressed. Hue may reinforce, never carry alone.",
+        "section": "colors"
+      },
+      {
+        "name": "The Printed Legend Rule",
+        "body": "Mono is for text that is physically on the hardware: a key, a screen, a dial, a field label, the nav strip. Sentences addressed to the reader are Archivo.",
+        "section": "typography"
+      },
+      {
+        "name": "The Width Is Weight Rule",
+        "body": "Display sizes widen as they grow heavier (108% at 800, 110% at 850, 112% at 900, 115% for the wordmark). Never set Archivo display text at default width.",
+        "section": "typography"
+      },
+      {
+        "name": "The Travel Rule",
+        "body": "Anything pressable has a wall, and pressing it spends the wall: translate down by the wall height minus 1px, collapse the wall to 1px. Hover never lifts; it may brighten the orange key by 4%.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Wall Outranks the Mat Rule",
+        "body": "A gunmetal object's wall is always darker than the mat it sits on, in both schemes. That is why the wall darkens to `gunmetal-wall-dark` on the charcoal mat.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** put every control, readout and specification on a gunmetal object with the chassis shadow, and every sentence to the reader on the mat.",
+      "**Do** give anything pressable a wall and spend it on press (translate wall height minus 1px, collapse to a 1px wall) in 120 to 140ms.",
+      "**Do** use the knob for any one-of-many or continuous choice (season, mode) and mode keys in a tray for a small set of views.",
+      "**Do** report live progress and counts on one amber screen, with tick scales for magnitude.",
+      "**Do** carry every state with a non-hue mark: corner dot, dashed rim, filled versus hollow tick, pressed travel.",
+      "**Do** show the end state directly under reduced motion.",
+      "**Do** keep orange to exactly one committing key per page."
+    ],
+    "donts": [
+      "**Don't** use amber for warnings, errors or emphasis; serious notices are bone plates in ink.",
+      "**Don't** put eyebrow or kicker labels above headings. Legends printed on the hardware itself (keycap numbers, a screen's corner legend, field labels) are part of the object and are fine.",
+      "**Don't** build icon feature cards; explain with the hardware (a function strip of keys, a spec plate).",
+      "**Don't** show numbers as hero-metric tiles; live counts go on the amber readout, and only real database counts are shown.",
+      "**Don't** add glow, blur halos or coloured shadows; depth is walls and contact shadows only.",
+      "**Don't** use gradients as surface decoration. Gradients only render a physical material: the knurl, the knob dome, screw heads.",
+      "**Don't** set Archivo display text at default width or mono text in sentences addressed to the reader.",
+      "**Don't** use 7TV's logo, colours or look-alike branding."
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "seasonal-emote-replacer",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "seasonal-emote-replacer",
+      "database_id": "a4a2bb83-def7-46dd-aea3-095b17f49904",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 32px;
+  padding: 22px var(--gutter);
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 850;
+  font-stretch: 115%;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 26px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nav a {
+  text-decoration: none;
+  padding: 6px 0;
+  border-bottom: 2px solid transparent;
+}
+
+@media (max-width: 640px) {
+  .nav {
+    flex-wrap: nowrap;
+    gap: 16px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+}
+
+.nav a:hover {
+  border-bottom-color: currentColor;
+}

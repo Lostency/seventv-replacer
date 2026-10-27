@@ -1,0 +1,141 @@
+/* First viewport: the pitch on the mat, the deck beside it. */
+.first {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.9fr);
+  align-items: center;
+  gap: clamp(28px, 4vw, 64px);
+  padding: clamp(12px, 3vh, 40px) var(--gutter) clamp(48px, 8vh, 96px);
+  min-height: calc(100svh - 82px);
+}
+
+.pitch {
+  display: grid;
+  gap: 24px;
+  align-content: center;
+  max-width: 34rem;
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-stretch: 112%;
+  font-size: clamp(2.25rem, 5vw, 5.25rem);
+  line-height: 0.96;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.promise {
+  margin: 0;
+  max-width: 34ch;
+  font-size: clamp(17px, 1.3vw, 19px);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+/* The deck: one gunmetal object, seen once, at one scale. */
+.deck {
+  display: grid;
+  gap: clamp(16px, 2vw, 26px);
+  padding: clamp(18px, 2.4vw, 36px);
+  border-radius: 28px;
+  background: var(--gunmetal);
+  box-shadow: var(--chassis-shadow);
+  color: var(--bone);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: clamp(16px, 2vw, 28px);
+  align-items: start;
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(8px, 1vw, 14px);
+  padding-bottom: var(--key-travel);
+}
+
+.controls {
+  display: grid;
+  justify-items: center;
+  align-content: space-between;
+  gap: 22px;
+  height: 100%;
+}
+
+.knob {
+  --knob-size: clamp(116px, 10vw, 150px);
+  --knob-ink: var(--bone);
+}
+
+.action {
+  width: var(--knob-size, 150px);
+  min-width: 0;
+  aspect-ratio: 1;
+  min-height: 0;
+}
+
+@media (max-width: 1100px) {
+  .first {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .pitch {
+    max-width: 40rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .deck {
+    border-radius: 20px;
+  }
+
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .controls {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 18px;
+    height: auto;
+  }
+
+  .knob {
+    --knob-size: 104px;
+  }
+
+  .action {
+    width: 100%;
+    aspect-ratio: auto;
+    min-height: 76px;
+  }
+}
+
+/* Sections below the deck share one rhythm: more air above a heading than below it. */
+.section {
+  padding: clamp(56px, 9vw, 120px) var(--gutter) 0;
+}
+
+.sectionHeading {
+  margin: 0 0 clamp(20px, 2.5vw, 32px);
+  font-family: var(--font-display);
+  font-weight: 850;
+  font-stretch: 110%;
+  font-size: clamp(2rem, 3.4vw, 3.25rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0 0 clamp(28px, 3vw, 40px);
+  max-width: 60ch;
+  font-size: 18px;
+  color: var(--ink-soft);
+}

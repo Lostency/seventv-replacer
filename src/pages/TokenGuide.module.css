@@ -1,0 +1,177 @@
+.main {
+  display: grid;
+  gap: clamp(24px, 3vw, 36px);
+  padding: clamp(24px, 5vw, 64px) var(--gutter) clamp(56px, 8vw, 96px);
+}
+
+.intro {
+  display: grid;
+  gap: 18px;
+  max-width: 46rem;
+}
+
+.heading {
+  margin: 0;
+  font-weight: 900;
+  font-stretch: 112%;
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 18px;
+  color: var(--ink-soft);
+}
+
+/* A bone plate printed in ink: serious, not alarming. Amber stays reserved for live state. */
+.warning {
+  margin: 0;
+  max-width: 64ch;
+  padding: 18px 22px;
+  border-radius: 12px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: 0 4px 0 var(--bone-wall), 0 8px 14px rgb(0 0 0 / 0.18);
+}
+
+.warning strong {
+  font-weight: 800;
+}
+
+.tablist {
+  display: inline-flex;
+  justify-self: start;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--gunmetal);
+  box-shadow: 0 6px 0 var(--gunmetal-edge), 0 10px 18px rgb(0 0 0 / 0.25);
+}
+
+/* Browser choice as two mode keys: the selected one sits pressed with its light on. */
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: var(--key-wall-bone);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+
+.tab::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--charcoal);
+}
+
+.tab[aria-selected='true'] {
+  transform: translateY(calc(var(--key-travel) - 1px));
+  box-shadow: var(--key-wall-pressed);
+}
+
+.tab[aria-selected='true']::before {
+  background: var(--amber);
+  border-color: var(--amber-dim);
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: start;
+}
+
+.steps {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.step {
+  position: relative;
+  max-width: 52ch;
+  padding-left: 52px;
+  counter-increment: step;
+  min-height: 34px;
+}
+
+.step::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: -3px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: 0 3px 0 var(--bone-wall);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: 0 2px 0 var(--bone-wall);
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  font-weight: 700;
+  text-align: center;
+}
+
+.code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  font-weight: 700;
+}
+
+.figure {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.caption {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 960px) {
+  .panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .figure {
+    position: static;
+  }
+}

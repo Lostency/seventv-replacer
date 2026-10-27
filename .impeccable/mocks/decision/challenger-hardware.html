@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stream Desk Deck</title>
+<style>
+  *{box-sizing:border-box;margin:0}
+  body{width:1440px;height:900px;background:#cfc9bc;font-family:ui-monospace,Consolas,monospace;overflow:hidden;color:#2A2A2A}
+  header{height:90px;display:flex;align-items:center;justify-content:space-between;padding:0 60px}
+  header h1{font:800 34px system-ui;letter-spacing:-.01em}
+  header nav{display:flex;gap:26px;font-size:14px}
+  .copy{position:absolute;left:60px;top:150px;width:420px}
+  .copy h2{font:900 58px/1 system-ui;letter-spacing:-.02em}
+  .copy p{margin-top:20px;font:17px/1.5 system-ui}
+  .deck{position:absolute;right:60px;top:120px;width:860px;height:720px;background:#3A3D42;border-radius:28px;padding:36px;box-shadow:0 18px 0 #26282c}
+  .screen{height:84px;background:#1a1207;border-radius:8px;color:#FFB000;font-size:30px;display:flex;align-items:center;padding:0 26px;letter-spacing:.08em}
+  .row{display:flex;gap:24px;margin-top:26px}
+  .keys{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;flex:1}
+  .key{aspect-ratio:1;background:#E6E1D6;border-radius:10px;box-shadow:0 6px 0 #a9a394;display:grid;place-items:center}
+  .key:nth-child(3n){background:#C9C3B5}
+  .key img{width:58%}
+  .side{width:170px;display:flex;flex-direction:column;gap:22px;align-items:center}
+  .knob{width:150px;height:150px;border-radius:50%;background:repeating-conic-gradient(#8d9096 0 4deg,#6f7278 4deg 8deg);border:8px solid #2a2c30}
+  .orange{width:150px;height:150px;border-radius:14px;background:#FF5F1F;box-shadow:0 8px 0 #b33e0f;color:#111;font:800 18px system-ui;display:grid;place-items:center;text-align:center}
+  .in{position:absolute;left:60px;top:560px;width:420px;height:60px;border:3px solid #2A2A2A;background:#E6E1D6;font-size:20px;padding:0 16px;display:flex;align-items:center}
+</style></head><body>
+<header><h1>Seasonal Emote Replacer</h1><nav><span>HOW IT WORKS</span><span>TOKEN GUIDE</span><span>COMPARE</span><span>SIGN IN</span></nav></header>
+<div class="copy"><h2>One key makes your set seasonal.</h2><p>Enter your channel, turn the knob to Halloween or Winter, press the orange key. Undo restores it exactly.</p></div>
+<div class="in">your_channel</div>
+<div class="deck"><div class="screen">HALLOWEEN · 37/48 MAPPED</div>
+<div class="row"><div class="keys" id="k"></div><div class="side"><div class="knob"></div><div class="orange">MAKE<br>SEASONAL</div></div></div></div>
+<script>
+const ids=["01EZPG1FN80001SNAW00ADK2DY","01EZPGMA6G00047EF100A1SBTF","01EZPH3FHR000C438200A44F11","01EZPHAJ3R000C438200A44F19","01EZPHJ86R000C438200A44F1S","01EZPHVXS0000C438200A44F24","01EZPJB06G000C438200A44F35","01EZPJCXQ8000C438200A44F38","01EZPK39HG00077NX500A43YDD","01EZPKD12800077NX500A43YDM","01EZPM9K4800077NX500A43YEN","01EZTCN91800012PTN006Q50PR","01EZTD6KQ800012PTN006Q50PV","01EZWTDC5R00012PTN006Q50RM","01EZY51MDR000CYST6006V20T4","01EZY967K0000CYST6006V20T8","01EZY9HFY8000CYST6006V20TD","01EZY9J3F8000CYST6006V20TE","01EZZC441R000CYST6006V20TM","01F00YT2CR0007E4VV006YKSK6","01F00Z3A9G0007E4VV006YKSK9","01F010G3WG0007E4VV006YKSKP","01F010GZ7G0007E4VV006YKSKQ","01F0170BYG0007E4VV006YKSMD"];
+const k=document.getElementById('k');ids.forEach(id=>k.insertAdjacentHTML('beforeend',`<div class="key"><img src="../../../public/emote-images/${id}.webp" alt=""></div>`));
+</script>
+</body></html>
