@@ -1,0 +1,146 @@
+/*
+ * Recreations of the browsers' own DevTools. They depict another app, so
+ * they use that app's system UI type and neutral chrome, not the deck's.
+ */
+.window {
+  --dt-bg: #ffffff;
+  --dt-bar: #f1f3f4;
+  --dt-line: #d6d9dc;
+  --dt-ink: #202124;
+  --dt-soft: #5f6368;
+  --dt-select: #d3e3fd;
+  --dt-accent: #1a73e8;
+
+  overflow: hidden;
+  border: 1px solid var(--dt-line);
+  border-radius: 12px;
+  background: var(--dt-bg);
+  color: var(--dt-ink);
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 2px 0 rgb(0 0 0 / 0.06), 0 18px 40px rgb(0 0 0 / 0.22);
+}
+
+.firefox {
+  --dt-bar: #f9f9fb;
+  --dt-line: #e0e0e6;
+  --dt-ink: #15141a;
+  --dt-soft: #5b5b66;
+  --dt-select: #deeafc;
+  --dt-accent: #0061e0;
+}
+
+.tabbar {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--dt-line);
+  background: var(--dt-bar);
+  white-space: nowrap;
+}
+
+.tab,
+.tabActive {
+  padding: 8px 10px;
+  color: var(--dt-soft);
+}
+
+.tabActive {
+  color: var(--dt-ink);
+  box-shadow: inset 0 -2px 0 var(--dt-accent);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.38fr) minmax(0, 1fr);
+  min-height: 290px;
+}
+
+.sidebar {
+  padding: 8px 0;
+  border-right: 1px solid var(--dt-line);
+  background: var(--dt-bar);
+}
+
+.group {
+  margin: 8px 12px 2px;
+  font-weight: 600;
+  color: var(--dt-soft);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 3px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.caret {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--dt-soft);
+}
+
+.nested {
+  padding-left: 32px;
+}
+
+.selected {
+  background: var(--dt-select);
+}
+
+.table {
+  display: grid;
+  grid-auto-rows: min-content;
+  min-width: 0;
+}
+
+.head,
+.row {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.36fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--dt-line);
+  min-height: 24px;
+}
+
+.head {
+  background: var(--dt-bar);
+  font-weight: 600;
+  color: var(--dt-soft);
+}
+
+.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+/* The row the guide is pointing at: an amber marker in the deck's own language. */
+.highlight {
+  position: relative;
+  background: #fff4d6;
+  box-shadow: inset 0 0 0 2px var(--amber);
+}
+
+.preview {
+  display: grid;
+  gap: 4px;
+  margin-top: 18px;
+  padding: 10px;
+  border-top: 1px solid var(--dt-line);
+}
+
+.previewLabel {
+  font-weight: 600;
+  color: var(--dt-soft);
+}
