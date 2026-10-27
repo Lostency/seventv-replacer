@@ -33,7 +33,9 @@ Decisions from the 2026-10-26/27 grilling and design sessions. Vocabulary follow
 - Modes: duplicate + replace (default; new set named "<set name> (<Season>)", editable), replace in place, revert (preset applied seasonal → normal).
 - Picking replace in place shows: "This changes your set directly. Revert uses the <Season> preset in reverse and may not restore every emote exactly. Undo restores it exactly, but only from this browser."
 - Preview before every run: current and seasonal image side by side per emote, all ticked, untickable; emotes without a seasonal version are summarised in one line ("41 emotes have no Halloween version yet").
-- Each swap keeps the emote's alias. Aliases outside `[A-Za-z0-9_-]` are transliterated (ä→ae, ö→oe, ü→ue, ß→ss) and retried once; renames are listed in the run report.
+- Each swap keeps the emote's alias exactly as spelled (umlauts, accents, `&`, `.`, `*` work on 7TV; `,` doesn't). If 7TV refuses a name, the run pauses and asks the user for a new one (with a suggestion), or to skip that emote or every later refusal; renames are listed in the run report. (Changed 2026-10-27 from automatic transliteration, after testing showed 7TV keeps umlauts.)
+- The run shows the estimated time left once a few emotes are done, not counting time spent waiting on the user.
+- The run's Undo record is saved after every change, so closing the tab mid-run still leaves an Undo for what was done.
 - Swaps are paced and retried with backoff when rate-limited; if the ADD half of a swap fails, the original is put back.
 - If 7TV refuses to create a set (creation unavailable or the account has used its slots), say so and suggest creating an empty set on 7TV and choosing it as the target.
 - Undo: the last 10 runs, stored in the browser (survives reload). Undo re-reads the set first; emotes changed since the run are skipped and listed. Undoing a duplicate + replace deletes the created set if 7TV allows it, else tells the user to delete it.

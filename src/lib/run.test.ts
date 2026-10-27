@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { EmoteSet } from '@shared/seventv';
 import { fakeSevenTv } from '../test/fake-seventv';
 import { executeRun, planSwaps, RunNotStarted } from './run';
@@ -68,16 +68,65 @@ describe('replace in place, then undo', () => {
     expect(tv.store.get('S')).toContainEqual({ id: 'B', alias: 'b' });
   });
 
-  it('spells out an alias 7TV refuses, retries once, and reports the rename', async () => {
-    const set = source([['süß', 'A']]);
-    const tv = fakeSevenTv({ S: [{ id: 'A', alias: 'süß' }] });
+  it('keeps umlauts and accents exactly as they are', async () => {
+    const set = source([['üäöéèà', 'A']]);
+    const tv = fakeSevenTv({ S: [{ id: 'A', alias: 'üäöéèà' }] });
+    const askAlias = vi.fn();
     const report = await executeRun(
       { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
       tv.writer,
-      quick,
+      { ...quick, askAlias },
     );
-    expect(report.renamed).toEqual([{ from: 'süß', to: 'suess' }]);
-    expect(tv.store.get('S')).toEqual([{ id: 'A2', alias: 'suess' }]);
+    expect(askAlias).not.toHaveBeenCalled();
+    expect(report.renamed).toEqual([]);
+    expect(tv.store.get('S')).toEqual([{ id: 'A2', alias: 'üäöéèà' }]);
+  });
+
+  it('asks for a new name when 7TV refuses one, and reports the rename', async () => {
+    const set = source([['a,b', 'A']]);
+    const tv = fakeSevenTv({ S: [{ id: 'A', alias: 'a,b' }] });
+    const askAlias = vi.fn(async () => 'a_b');
+    const report = await executeRun(
+      { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
+      tv.writer,
+      { ...quick, askAlias },
+    );
+    expect(askAlias).toHaveBeenCalledWith({
+      alias: 'a,b',
+      emoteId: 'A2',
+      reason: 'Invalid emote name',
+      suggestion: 'ab',
+      role: 'seasonal',
+    });
+    expect(report.renamed).toEqual([{ from: 'a,b', to: 'a_b' }]);
+    expect(tv.store.get('S')).toEqual([{ id: 'A2', alias: 'a_b' }]);
+  });
+
+  it('asks again for the original when the user skips the seasonal one', async () => {
+    const set = source([['a,b', 'A']]);
+    const tv = fakeSevenTv({ S: [{ id: 'A', alias: 'a,b' }] });
+    const askAlias = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce('ab');
+    const report = await executeRun(
+      { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
+      tv.writer,
+      { ...quick, askAlias },
+    );
+    expect(askAlias.mock.calls[1]![0]).toMatchObject({ emoteId: 'A', role: 'normal' });
+    expect(report.failed).toHaveLength(1);
+    expect(report.lost).toEqual([]);
+    expect(tv.store.get('S')).toEqual([{ id: 'A', alias: 'ab' }]);
+  });
+
+  it('saves the record after every batch, so a closed tab can still be undone', async () => {
+    const set = source([['a', 'A'], ['b', 'B']]);
+    const tv = fakeSevenTv({ S: set.emotes });
+    const saved: number[] = [];
+    await executeRun(
+      { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
+      tv.writer,
+      { ...quick, onRecord: (r) => saved.push(r.swaps.length) },
+    );
+    expect(saved).toEqual([2]);
   });
 
   it('skips emotes changed since the run when undoing', async () => {
@@ -95,17 +144,19 @@ describe('replace in place, then undo', () => {
     expect(tv.store.get('S')).toEqual([{ id: 'Z', alias: 'b' }, { id: 'A', alias: 'a' }]);
   });
 
-  it('stops when the token expires, keeping a record of what it did', async () => {
+  it('stops when the token expires, and says which emotes are now missing', async () => {
     const set = source([['a', 'A'], ['b', 'B'], ['c', 'C']]);
     const tv = fakeSevenTv({ S: set.emotes });
-    tv.writer.expireTokenAfter = 2;
+    // The removals go through, then the token dies before the additions.
+    tv.writer.expireTokenAfter = 1;
     const report = await executeRun(
       { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
       tv.writer,
       quick,
     );
-    expect(report.stopped).toMatch(/token/);
-    expect(report.record.swaps).toHaveLength(1);
+    expect(report.stopped).toMatch(/Log out of 7tv\.app/);
+    expect(report.record.swaps).toEqual([]);
+    expect(report.lost).toEqual(['a', 'b', 'c']);
   });
 });
 
@@ -130,6 +181,7 @@ describe('duplicate + replace', () => {
     expect(tv.store.get('S')).toEqual(set.emotes);
 
     expect(await undoRun(report.record, tv.writer, quick)).toMatchObject({ deletedSet: true });
+    expect(report.record.added).toEqual([]);
     expect(tv.store.has('NEW1')).toBe(false);
   });
 

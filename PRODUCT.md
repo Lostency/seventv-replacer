@@ -27,7 +27,8 @@ The mappings are not guessed from search results. They come from real channels' 
 ## Operating Context
 
 - 7TV has no third-party OAuth: changing a set needs the user's 7TV token, copied by hand from 7tv.app's browser storage. The token stays in the browser and is only ever sent to 7TV.
-- 7TV rate-limits requests and rejects aliases outside `[A-Za-z0-9_-]`.
+- 7TV rate-limits requests. It accepts most alias spellings (umlauts, accents, `&`, `.`, `*` all work, confirmed 2026-10-27) but refuses some characters, such as `,`.
+- A run happens in the browser tab, one emote per request, because the token never leaves the browser. Closing the tab stops the run.
 - Emote sets may be owned by a different 7TV account than the channel that uses them (editors).
 
 ## Capabilities and Constraints

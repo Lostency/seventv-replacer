@@ -1,21 +1,11 @@
-/** 7TV only accepts aliases made of these characters. */
-const VALID_ALIAS = /^[A-Za-z0-9_-]+$/;
-
-const SPELLED_OUT: Record<string, string> = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss' };
-
-export function isValidAlias(alias: string): boolean {
-  return VALID_ALIAS.test(alias);
-}
-
 /**
- * The closest alias 7TV will accept: umlauts spelled out (ä → ae, ß → ss),
- * other accents dropped, anything else left out. Null when nothing usable is left.
+ * 7TV keeps most spellings as they are (ä, é, &, ., * all work), but refuses
+ * some characters, such as commas. When it refuses a name, this is the
+ * first suggestion offered to the user, who has the final say.
  */
-export function transliterate(alias: string): string | null {
-  const spelled = alias.replace(/[äöüÄÖÜß]/g, (ch) => SPELLED_OUT[ch]!);
-  const plain = spelled
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^A-Za-z0-9_-]/g, '');
-  return plain && plain !== alias ? plain : null;
+export function suggestAlias(alias: string): string {
+  const stripped = alias.replace(/[,\s]/g, '');
+  if (!stripped) return 'emote';
+  // Nothing obviously wrong with the name: it may clash with one already in the set.
+  return stripped === alias ? `${alias}_` : stripped;
 }

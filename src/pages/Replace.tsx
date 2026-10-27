@@ -14,7 +14,8 @@ import { Knob } from '../design/Knob';
 import { SiteFooter } from '../design/SiteFooter';
 import { SiteHeader } from '../design/SiteHeader';
 import { SwapList } from '../design/SwapList';
-import { executeRun, planSwaps, type RunMode, type RunRecord, type RunReport } from '../lib/run';
+import { RenameDialog, type PendingQuestion } from '../components/RenameDialog';
+import { executeRun, planSwaps, type AliasQuestion, type RunMode, type RunRecord, type RunReport } from '../lib/run';
 import { createWriter } from '../lib/seventv-write';
 import { cleanToken, forgetRun, loadRuns, loadToken, rememberRun, saveToken } from '../lib/storage';
 import { undoRun, type UndoReport } from '../lib/undo';
@@ -38,7 +39,7 @@ type Loaded<T> = T | 'loading' | 'failed';
 
 type RunState =
   | { kind: 'idle' }
-  | { kind: 'running'; done: number; total: number }
+  | { kind: 'running'; done: number; total: number; msLeft?: number }
   | { kind: 'done'; report: RunReport }
   | { kind: 'failed'; message: string };
 
@@ -46,6 +47,14 @@ type UndoResult = { record: RunRecord; report?: UndoReport; error?: string };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const errorText = (error: unknown) => (error instanceof Error ? error.message : 'Something went wrong. Try again.');
+/** Before this many emotes the pace isn't known well enough to estimate. */
+const ETA_AFTER = 3;
+
+function timeLeft(ms: number): string {
+  const minutes = Math.round(ms / 60_000);
+  return minutes < 1 ? 'under 1 min left' : `~${minutes} min left`;
+}
+
 const when = (iso: string) => new Date(iso).toLocaleString('en', { dateStyle: 'medium', timeStyle: 'short' });
 
 function modeDescription(mode: RunMode, season: string): string {
@@ -81,6 +90,9 @@ export function Replace() {
   const [runs, setRuns] = useState<RunRecord[]>(loadRuns);
   const [undoing, setUndoing] = useState<string>();
   const [undoResult, setUndoResult] = useState<UndoResult>();
+  const [question, setQuestion] = useState<PendingQuestion>();
+  // Time the run spends waiting on the user doesn't count toward the estimate.
+  const clock = useRef({ started: 0, waiting: 0, askedAt: 0, skipAll: false });
 
   const label = seasonLabel(season);
   const running = runState.kind === 'running';
@@ -98,7 +110,7 @@ export function Replace() {
   // A new set, season or mode is a new preview: everything starts ticked again.
   useEffect(() => setUnticked(new Set()), [set?.id, season, mode]);
 
-  // Closing the tab mid-run would leave a half-swapped set without an Undo record.
+  // The run lives in this tab: closing it stops the run half-way (Undo still has what was done).
   useEffect(() => {
     if (!running) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
@@ -115,7 +127,9 @@ export function Replace() {
 
   const readout = (() => {
     if (runState.kind === 'running') {
-      return `${mode === 'duplicate' ? 'Copying' : 'Swapping'} · ${runState.done}/${runState.total}`;
+      if (question) return 'Waiting for you';
+      const progress = `${mode === 'duplicate' ? 'Copying' : 'Swapping'} · ${runState.done}/${runState.total}`;
+      return runState.msLeft === undefined ? progress : `${progress} · ${timeLeft(runState.msLeft)}`;
     }
     if (runState.kind === 'done') return `Done · ${runState.report.swapped} swapped`;
     if (!set) return 'Pick a set';
@@ -160,6 +174,31 @@ export function Replace() {
     const source = set;
     setUndoResult(undefined);
     setRunState({ kind: 'running', done: 0, total: mode === 'duplicate' ? source.emotes.length : ticked.length });
+    clock.current = { started: Date.now(), waiting: 0, askedAt: 0, skipAll: false };
+
+    const onProgress = (done: number, total: number) => {
+      const { started, waiting } = clock.current;
+      const perEmote = (Date.now() - started - waiting) / done;
+      setRunState({ kind: 'running', done, total, msLeft: done >= ETA_AFTER ? perEmote * (total - done) : undefined });
+    };
+
+    // 7TV refused a name: the run waits here until the user picks a new one or skips.
+    const askAlias = (q: AliasQuestion) => {
+      if (clock.current.skipAll) return Promise.resolve(null);
+      clock.current.askedAt = Date.now();
+      return new Promise<string | null>((resolve) =>
+        setQuestion({
+          question: q,
+          answer: (name, skipRest) => {
+            clock.current.waiting += Date.now() - clock.current.askedAt;
+            if (skipRest) clock.current.skipAll = true;
+            setQuestion(undefined);
+            resolve(name);
+          },
+        }),
+      );
+    };
+
     try {
       const report = await executeRun(
         {
@@ -175,7 +214,7 @@ export function Replace() {
                 : { kind: 'new', name: copyName.trim() },
         },
         createWriter(token),
-        { onProgress: (done, total) => setRunState({ kind: 'running', done, total }) },
+        { onProgress, askAlias, onRecord: (record) => setRuns(rememberRun(record)) },
       );
       const { record } = report;
       if (record.createdSet || record.swaps.length || record.added.length) setRuns(rememberRun(record));
@@ -392,6 +431,8 @@ export function Replace() {
           </ActionKey>
         </section>
 
+        {question && <RenameDialog pending={question} season={label} />}
+
         {runState.kind === 'failed' && (
           <p className={styles.plate} role="alert">
             {runState.message}
@@ -418,7 +459,7 @@ export function Replace() {
                       {MODE_NAMES[record.mode]} · {seasonLabel(record.season)} · {when(record.at)}
                     </p>
                   </div>
-                  <GunmetalKey size="small" busy={undoing === record.id} onClick={() => void undo(record)}>
+                  <GunmetalKey size="small" busy={running || undoing === record.id} onClick={() => void undo(record)}>
                     {undoing === record.id ? 'Undoing…' : 'Undo'}
                   </GunmetalKey>
                 </li>
@@ -440,7 +481,7 @@ function RunSummary({ report }: { report: RunReport }) {
         {report.stopped ? 'Run stopped' : 'Run finished'}
       </h2>
       {report.stopped && (
-        <p className={styles.plate}>
+        <p className={styles.plate} role="alert">
           <strong>{report.stopped}</strong> What was done so far is listed below and can be undone.
         </p>
       )}
