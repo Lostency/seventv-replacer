@@ -53,12 +53,13 @@ describe('Landing', () => {
     expect(screen.getByRole('status')).not.toHaveTextContent(/\d|NaN/);
   });
 
-  it('skips the auto-turn under reduced motion', async () => {
+  it('opens on the seasonal set without animation under reduced motion', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-27T12:00:00'));
     mockReducedMotion(true);
     renderAt('/');
-    await waitFor(() => expect(document.querySelectorAll('img')).toHaveLength(24));
-    await act(() => new Promise((resolve) => setTimeout(resolve, 1200)));
-    expect(screen.getByRole('radio', { name: 'Normal' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Halloween' })).toBeChecked();
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Halloween · 275 mappings'));
   });
 
   it('turns to the current season on its own', async () => {

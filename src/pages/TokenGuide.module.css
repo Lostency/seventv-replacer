@@ -27,15 +27,19 @@
   color: var(--ink-soft);
 }
 
-/* The warning reads off the deck's amber screen: serious, not alarming. */
+/* A bone plate printed in ink: serious, not alarming. Amber stays reserved for live state. */
 .warning {
   margin: 0;
   max-width: 64ch;
-  padding: 16px 20px;
-  border-radius: 10px;
-  background: var(--amber);
-  color: var(--amber-glass);
-  font-weight: 500;
+  padding: 18px 22px;
+  border-radius: 12px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: 0 4px 0 var(--bone-wall), 0 8px 14px rgb(0 0 0 / 0.18);
+}
+
+.warning strong {
+  font-weight: 800;
 }
 
 .tablist {

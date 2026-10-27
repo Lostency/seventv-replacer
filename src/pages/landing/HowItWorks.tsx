@@ -4,7 +4,6 @@ import styles from './sections.module.css';
 
 const STEPS = [
   {
-    key: 'Token',
     title: 'Grab your 7TV token',
     body: (
       <>
@@ -14,32 +13,32 @@ const STEPS = [
     ),
   },
   {
-    key: 'Set',
     title: 'Pick your set',
     body: 'Type your channel and choose a set, or paste a set link. Sets an editor made for you work too.',
   },
   {
-    key: 'Press',
     title: 'Preview, then press',
     body: 'Every swap shows up side by side first. Untick anything you’d rather keep, then press the key.',
   },
 ];
 
+/** The three steps as the deck's function row: one strip, three keys, each step printed on its key. */
 export function HowItWorks() {
   return (
     <section id="how" className={page.section} aria-labelledby="how-heading">
       <h2 id="how-heading" className={page.sectionHeading}>
         How it works
       </h2>
-      <ol className={styles.steps}>
+      <ol className={styles.functionRow}>
         {STEPS.map((step, i) => (
-          <li key={step.key} className={styles.step}>
-            <span className={styles.stepCap} aria-hidden="true">
-              <span className={styles.stepNumber}>{i + 1}</span>
-              {step.key}
-            </span>
-            <h3 className={styles.stepTitle}>{step.title}</h3>
-            <p className={styles.stepBody}>{step.body}</p>
+          <li key={step.title} className={styles.functionStep}>
+            <div className={styles.functionKey}>
+              <span className={styles.functionNumber} aria-hidden="true">
+                {i + 1}
+              </span>
+              <h3 className={styles.functionTitle}>{step.title}</h3>
+            </div>
+            <p className={styles.functionBody}>{step.body}</p>
           </li>
         ))}
       </ol>

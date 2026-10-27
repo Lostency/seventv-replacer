@@ -47,7 +47,7 @@ export function Landing() {
             <h1 className={styles.headline}>One key makes your set seasonal.</h1>
             <p className={styles.promise}>
               Type your Twitch channel, turn the knob to Halloween or Winter, and press the orange key. You see every
-              swap before anything changes, and Undo puts your set back exactly as it was.
+              swap before anything changes, and Undo reverses every swap it made.
             </p>
             <DeckField
               label="Your Twitch channel"

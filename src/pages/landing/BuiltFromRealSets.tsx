@@ -4,7 +4,22 @@ import type { StatsResponse } from '@shared/types';
 import page from '../Landing.module.css';
 import styles from './sections.module.css';
 
+const TICK_EVERY = 50;
+
+/** One tick per 50 mappings, lit up to the season's live count: the readout's scale. */
+function Scale({ value, max }: { value: number; max: number }) {
+  const ticks = Math.max(1, Math.ceil(max / TICK_EVERY));
+  return (
+    <span className={styles.scale} aria-hidden="true">
+      {Array.from({ length: ticks }, (_, i) => (
+        <span key={i} className={styles.tick} data-lit={i * TICK_EVERY < value || undefined} />
+      ))}
+    </span>
+  );
+}
+
 export function BuiltFromRealSets({ stats }: { stats: StatsResponse | null }) {
+  const max = stats ? Math.max(...SEASONS.map((s) => stats.mappings[s])) : 0;
   return (
     <section className={page.section} aria-labelledby="real-heading">
       <div className={styles.real}>
@@ -21,14 +36,23 @@ export function BuiltFromRealSets({ stats }: { stats: StatsResponse | null }) {
           </Link>
         </div>
         {stats && (
-          <dl className={styles.counts}>
-            {SEASONS.map((season) => (
-              <div key={season} className={styles.count}>
-                <dt>{seasonLabel(season)} mappings</dt>
-                <dd>{stats.mappings[season].toLocaleString('en')}</dd>
-              </div>
-            ))}
-          </dl>
+          <div className={styles.readoutBezel}>
+            <dl className={styles.readout}>
+              <span className={styles.readoutLegend} aria-hidden="true">
+                Preset size · live
+              </span>
+              {SEASONS.map((season) => (
+                <div key={season} className={styles.readoutRow}>
+                  <dt>{seasonLabel(season)}</dt>
+                  <dd>
+                    {stats.mappings[season].toLocaleString('en')}
+                    <span className={styles.readoutUnit}> mappings</span>
+                  </dd>
+                  <Scale value={stats.mappings[season]} max={max} />
+                </div>
+              ))}
+            </dl>
+          </div>
         )}
       </div>
     </section>

@@ -1,82 +1,136 @@
-/* How it works: three wide function keys, each with its step below it on the mat. */
-.steps {
+/* How it works: the deck's function row. One gunmetal strip, three wide keys, each step printed on its key. */
+.functionRow {
+  --strip-pad: clamp(12px, 1.6vw, 18px);
+  --fkey-height: 76px;
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(20px, 3vw, 44px);
+  gap: clamp(14px, 2vw, 22px);
   margin: 0;
-  padding: 0;
+  padding: 0 var(--strip-pad);
   list-style: none;
 }
 
-.step {
-  display: grid;
-  align-content: start;
-  gap: 12px;
+/* The strip sits behind the keys only, so each step's text reads on the mat below it. */
+.functionRow::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--strip-pad)) 0 auto;
+  height: calc(var(--fkey-height) + 2 * var(--strip-pad) + var(--key-travel));
+  border-radius: 18px;
+  background: var(--gunmetal);
+  box-shadow: var(--chassis-shadow);
 }
 
-.stepCap {
+.functionStep {
+  position: relative;
+  display: grid;
+  align-content: start;
+}
+
+.functionKey {
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 14px;
-  height: 64px;
-  margin-bottom: calc(8px + var(--key-travel));
+  height: var(--fkey-height);
   padding: 0 18px;
   border-radius: var(--key-radius);
   background: var(--bone);
   box-shadow: var(--key-wall-bone);
   color: var(--charcoal);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
-.stepNumber {
+.functionStep:nth-child(2) .functionKey {
+  background: var(--putty);
+  box-shadow: var(--key-wall-putty);
+}
+
+.functionNumber {
   display: grid;
+  flex: none;
   place-items: center;
   width: 30px;
   height: 30px;
   border: 2px solid var(--charcoal);
   border-radius: 50%;
+  font-family: var(--font-mono);
+  font-weight: 700;
   font-size: 13px;
-  letter-spacing: 0;
 }
 
-.stepTitle {
+.functionTitle {
   margin: 0;
-  font-weight: 800;
-  font-stretch: 105%;
-  font-size: 22px;
-  line-height: 1.2;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: clamp(12px, 1.1vw, 15px);
+  line-height: 1.25;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.stepBody {
-  margin: 0;
+.functionBody {
+  margin: calc(28px + var(--key-travel)) 0 0;
   max-width: 38ch;
   color: var(--ink-soft);
 }
 
 @media (max-width: 860px) {
-  .steps {
-    grid-template-columns: 1fr;
+  .functionRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
+    padding: 0;
+  }
+
+  .functionRow::before {
+    display: none;
+  }
+
+  .functionStep {
+    gap: 14px;
+    padding: 14px 14px 18px;
+    border-radius: 18px;
+    background: var(--gunmetal);
+    box-shadow: var(--chassis-shadow);
+  }
+
+  .functionBody {
+    margin: var(--key-travel) 4px 0;
+    color: #d6d0c4;
   }
 }
 
 /* Safe by default: the spec plate screwed to the back of the deck. */
 .plate {
+  position: relative;
   margin: 0;
-  padding: clamp(10px, 1.5vw, 18px) clamp(20px, 3vw, 40px);
+  padding: clamp(18px, 2vw, 26px) clamp(28px, 4vw, 56px);
   border-radius: 22px;
   background: var(--gunmetal);
   box-shadow: var(--chassis-shadow);
   color: var(--bone);
+  list-style: none;
+}
+
+/* Four countersunk screws, one in each corner. */
+.plate::before {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  pointer-events: none;
+  --screw: radial-gradient(circle, #8d9197 0 3px, #2b2e32 3.5px 5px, transparent 5.5px);
+  background:
+    var(--screw) top left / 12px 12px no-repeat,
+    var(--screw) top right / 12px 12px no-repeat,
+    var(--screw) bottom left / 12px 12px no-repeat,
+    var(--screw) bottom right / 12px 12px no-repeat;
 }
 
 .plateRow {
   display: grid;
-  grid-template-columns: minmax(150px, 0.32fr) minmax(0, 1fr);
-  gap: 8px 32px;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
+  gap: 6px 32px;
+  align-items: baseline;
   padding: 22px 0;
   border-bottom: 1px solid #50545a;
 }
@@ -85,41 +139,25 @@
   border-bottom: 0;
 }
 
-.plateLabel {
-  padding-top: 4px;
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #b7b2a7;
-}
-
-.plateValue {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-}
-
-.plateValue strong {
+.plateTitle {
   font-weight: 800;
   font-stretch: 108%;
   font-size: clamp(20px, 2vw, 26px);
   line-height: 1.2;
 }
 
-.plateValue span {
+.plateBody {
   max-width: 60ch;
-  color: #cfc9bd;
+  color: #d6d0c4;
 }
 
 @media (max-width: 640px) {
   .plateRow {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-/* Learned from real channels: the explanation beside the live readouts. */
+/* Learned from real channels: the explanation beside one live instrument readout. */
 .real {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
@@ -135,60 +173,108 @@
   border-radius: 10px;
   background: var(--gunmetal);
   color: var(--bone);
-  box-shadow: 0 5px 0 var(--gunmetal-edge), 0 8px 10px rgb(0 0 0 / 0.25);
+  box-shadow:
+    0 5px 0 var(--gunmetal-wall),
+    0 8px 10px rgb(0 0 0 / 0.25);
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-decoration: none;
-  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+  transition:
+    transform 120ms var(--ease-out),
+    box-shadow 120ms var(--ease-out);
 }
 
 .compareLink:active {
   transform: translateY(4px);
-  box-shadow: 0 1px 0 var(--gunmetal-edge), 0 2px 4px rgb(0 0 0 / 0.25);
+  box-shadow:
+    0 1px 0 var(--gunmetal-wall),
+    0 2px 4px rgb(0 0 0 / 0.25);
 }
 
-.counts {
-  display: grid;
-  gap: 14px;
-  margin: 0;
-  padding: 14px;
+.readoutBezel {
+  padding: 12px;
   border-radius: 18px;
   background: var(--gunmetal);
   box-shadow: var(--chassis-shadow);
 }
 
-.count {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 20px;
-  border-radius: 6px;
+/* Recessed amber glass: corner legend, one row per season, each with its tick scale. */
+.readout {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 34px 24px 22px;
+  border-radius: 8px;
   background: var(--amber);
   color: var(--amber-glass);
   font-family: var(--font-mono);
   font-weight: 700;
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.2),
+    inset 0 8px 14px rgb(0 0 0 / 0.16);
+}
+
+.readoutLegend {
+  position: absolute;
+  top: 12px;
+  left: 24px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  opacity: 0.8;
 }
 
-.count dt {
+.readoutRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 6px 16px;
+}
+
+.readoutRow dt {
   font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-.count dd {
+.readoutRow dd {
   margin: 0;
-  font-size: clamp(28px, 3.4vw, 44px);
+  justify-self: end;
+  font-size: clamp(28px, 3.2vw, 40px);
+  line-height: 1;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+}
+
+.readoutUnit {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.scale {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 4px;
+  height: 12px;
+}
+
+.tick {
+  flex: 1;
+  border-radius: 1px;
+  background: rgb(26 18 7 / 0.18);
+}
+
+.tick[data-lit] {
+  background: var(--amber-glass);
 }
 
 @media (max-width: 860px) {
   .real {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

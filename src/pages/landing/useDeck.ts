@@ -26,8 +26,9 @@ function prefersReducedMotion(): boolean {
  */
 export function useDeck() {
   const [reducedMotion] = useState(prefersReducedMotion);
-  const [dial, setDialState] = useState<Dial>('normal');
   const [deckSeason, setDeckSeason] = useState<SeasonId>(() => currentSeason(new Date()));
+  // The seasonal set is the content, not the animation: without motion, open on it directly.
+  const [dial, setDialState] = useState<Dial>(() => (reducedMotion ? deckSeason : 'normal'));
   const [presets, setPresets] = useState<Partial<Record<SeasonId, Loaded<MappingRow[]>>>>({});
   const [stats, setStats] = useState<Loaded<StatsResponse>>('loading');
   const [flipped, setFlipped] = useState(0);
