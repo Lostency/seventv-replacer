@@ -11,3 +11,12 @@ export interface PresetFile {
   season: SeasonId;
   mappings: MappingRow[];
 }
+
+export interface PresetResponse {
+  season: SeasonId;
+  mappings: MappingRow[];
+}
+
+export interface StatsResponse {
+  mappings: Record<SeasonId, number>;
+}
