@@ -1,0 +1,43 @@
+.key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--gunmetal);
+  color: var(--bone);
+  box-shadow:
+    0 5px 0 var(--gunmetal-wall),
+    0 8px 10px rgb(0 0 0 / 0.25);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 120ms var(--ease-out),
+    box-shadow 120ms var(--ease-out);
+}
+
+.key[data-size='small'] {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 12px;
+}
+
+.key:active,
+.key[aria-disabled='true'] {
+  transform: translateY(4px);
+  box-shadow:
+    0 1px 0 var(--gunmetal-wall),
+    0 2px 4px rgb(0 0 0 / 0.25);
+}
+
+.key[aria-disabled='true'] {
+  cursor: progress;
+}

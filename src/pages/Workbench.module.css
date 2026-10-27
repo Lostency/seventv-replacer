@@ -1,0 +1,297 @@
+/* Replace and Compare: a stack of numbered steps on the mat, with the controls on gunmetal. */
+.main {
+  display: grid;
+  gap: clamp(36px, 5vw, 64px);
+  padding: clamp(24px, 5vw, 64px) var(--gutter) clamp(56px, 8vw, 96px);
+}
+
+.intro {
+  display: grid;
+  gap: 18px;
+  max-width: 46rem;
+}
+
+.heading {
+  margin: 0;
+  font-weight: 900;
+  font-stretch: 112%;
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 18px;
+  color: var(--ink-soft);
+}
+
+.step {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+}
+
+.stepHeading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  font-weight: 800;
+  font-stretch: 108%;
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.2;
+}
+
+/* The step number as a small bone cap, the same as the token guide's. */
+.stepNumber {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: 0 3px 0 var(--bone-wall);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-weight: 850;
+  font-stretch: 110%;
+  font-size: clamp(1.75rem, 3vw, 2.6rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.stepLede {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--ink-soft);
+}
+
+.tokenRow {
+  display: grid;
+  grid-template-columns: minmax(0, 32rem) max-content;
+  justify-content: start;
+  gap: 14px;
+  align-items: start;
+}
+
+.tokenForget {
+  margin-top: 30px;
+}
+
+/* The control console: knobs on one gunmetal plate, the explanation printed beside them. */
+.console {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 28px clamp(28px, 4vw, 56px);
+  justify-self: start;
+  max-width: 100%;
+  /* Clear the chassis wall (18px) before whatever follows on the mat. */
+  margin-bottom: 18px;
+  padding: clamp(18px, 2.4vw, 32px) clamp(22px, 3vw, 40px);
+  border-radius: 22px;
+  background: var(--gunmetal);
+  box-shadow: var(--chassis-shadow);
+  color: var(--bone);
+}
+
+.knob {
+  --knob-size: clamp(104px, 9vw, 128px);
+  --knob-ink: var(--bone);
+}
+
+.consoleNote {
+  max-width: 34ch;
+  margin: 0;
+  color: #d6d0c4;
+}
+
+.consoleNote strong {
+  color: var(--bone);
+}
+
+/* A serious notice: a bone plate printed in ink. Amber stays reserved for live state. */
+.plate {
+  margin: 0;
+  max-width: 64ch;
+  padding: 18px 22px;
+  border-radius: 12px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: 0 4px 0 var(--bone-wall), 0 8px 14px rgb(0 0 0 / 0.18);
+}
+
+.plate strong {
+  font-weight: 800;
+}
+
+.plate a {
+  font-weight: 700;
+}
+
+.note {
+  margin: 0;
+  max-width: 64ch;
+  font-size: 15px;
+}
+
+.note p {
+  margin: 0 0 6px;
+}
+
+.target {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  max-width: 40rem;
+}
+
+.target > :first-child {
+  justify-self: stretch;
+}
+
+.textButton {
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 2px solid currentColor;
+  background: none;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* The run bar: the deck's readout and its one orange key, at the foot of the steps. */
+.runBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(16px, 2vw, 28px);
+  padding: clamp(18px, 2.4vw, 32px);
+  border-radius: 28px;
+  background: var(--gunmetal);
+  box-shadow: var(--chassis-shadow);
+}
+
+.runKey {
+  min-width: 220px;
+  min-height: 96px;
+}
+
+.report {
+  display: grid;
+  gap: 18px;
+}
+
+.listBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.listHeading {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.facts {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 1.2em;
+  max-width: 70ch;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.runs {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  max-width: 48rem;
+  list-style: none;
+}
+
+.runRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 0 18px;
+  border-bottom: 1px solid var(--mat-line);
+}
+
+.runText {
+  min-width: 0;
+}
+
+.runName {
+  margin: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.runMeta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.signedIn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .tokenRow,
+  .runBar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tokenForget {
+    margin-top: 0;
+    justify-self: start;
+  }
+
+  .console {
+    justify-self: stretch;
+    justify-content: center;
+    border-radius: 20px;
+  }
+
+  .runBar {
+    border-radius: 20px;
+  }
+
+  .runKey {
+    width: 100%;
+    min-width: 0;
+    min-height: 76px;
+  }
+}

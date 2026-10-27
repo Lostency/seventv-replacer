@@ -15,15 +15,15 @@ export function currentPath(): string {
   return location ? `${location.pathname}${location.search}` : '';
 }
 
-type Handler = (url: string) => Response | Promise<Response>;
+type Handler = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
 /** Answers fetch by URL prefix; anything unmatched rejects like a network failure. */
 export function mockFetch(handlers: Record<string, Handler>) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const match = Object.keys(handlers).find((prefix) => url.startsWith(prefix));
     if (!match) throw new TypeError(`Network error: ${url}`);
-    return handlers[match]!(url);
+    return handlers[match]!(url, init);
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;

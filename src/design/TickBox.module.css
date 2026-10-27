@@ -1,0 +1,30 @@
+.box {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  border: 2px solid var(--charcoal);
+  border-radius: 6px;
+  background: var(--bone);
+  box-shadow: 0 3px 0 var(--bone-wall);
+  cursor: pointer;
+}
+
+.box:checked {
+  background: var(--charcoal);
+}
+
+/* The check: two bone strokes, so "on" never depends on colour alone. */
+.box:checked::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 2px;
+  width: 7px;
+  height: 13px;
+  border: solid var(--bone);
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}

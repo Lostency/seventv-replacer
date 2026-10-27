@@ -1,0 +1,139 @@
+.picker {
+  display: grid;
+  gap: 22px;
+}
+
+.search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  max-width: 40rem;
+}
+
+/* Level with the field: below its label (12px mono at 1.5 plus the 8px gap), as tall as the well. */
+.find {
+  margin-top: 26px;
+  height: 60px;
+}
+
+.results {
+  display: grid;
+  gap: 12px;
+}
+
+.resultsHeading {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.sets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 12px;
+  margin: 0;
+  padding: 0 0 var(--key-travel);
+  list-style: none;
+}
+
+/* Each set is a bone key with a lamp: lit amber for the channel's active set. */
+.set {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: var(--key-wall-bone);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 120ms var(--ease-out),
+    box-shadow 120ms var(--ease-out);
+}
+
+.set:active,
+.set[aria-busy='true'] {
+  transform: translateY(calc(var(--key-travel) - 1px));
+  box-shadow: var(--key-wall-pressed);
+}
+
+.lamp {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--charcoal);
+  border-radius: 50%;
+}
+
+.lamp[data-on] {
+  background: var(--amber);
+  border-color: var(--amber-dim);
+}
+
+.setName {
+  overflow-wrap: anywhere;
+}
+
+.setNote {
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.chosen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 22px;
+  max-width: 40rem;
+  padding: 16px 18px 16px 22px;
+  border-radius: 12px;
+  background: var(--bone);
+  color: var(--charcoal);
+  box-shadow: 0 4px 0 var(--bone-wall), 0 8px 14px rgb(0 0 0 / 0.18);
+}
+
+.chosenText {
+  min-width: 0;
+}
+
+.chosenName {
+  margin: 0;
+  font-weight: 800;
+  font-stretch: 108%;
+  font-size: 20px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.chosenMeta {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: #55524b;
+}
+
+@media (max-width: 640px) {
+  .search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .find {
+    margin-top: 0;
+  }
+}

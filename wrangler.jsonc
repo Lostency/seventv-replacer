@@ -7,6 +7,10 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
   },
+  // Twitch logins with admin rights. TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET are secrets: see README.
+  "vars": {
+    "ADMIN_LOGINS": "niena"
+  },
   "d1_databases": [
     {
       "binding": "DB",
