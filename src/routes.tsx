@@ -1,11 +1,12 @@
 import type { RouteObject } from 'react-router';
+import { Compare } from './pages/Compare';
 import { Landing } from './pages/Landing';
-import { NotYet } from './pages/NotYet';
+import { Replace } from './pages/Replace';
 import { TokenGuide } from './pages/TokenGuide';
 
 export const routes: RouteObject[] = [
   { path: '/', element: <Landing /> },
   { path: '/guide/token', element: <TokenGuide /> },
-  { path: '/replace', element: <NotYet feature="Replace" /> },
-  { path: '/compare', element: <NotYet feature="Compare" /> },
+  { path: '/replace', element: <Replace /> },
+  { path: '/compare', element: <Compare /> },
 ];

@@ -21,7 +21,8 @@
   filter: brightness(1.04);
 }
 
-.key:active {
+.key:active,
+.key[aria-disabled='true'] {
   transform: translateY(7px);
   box-shadow:
     0 1px 0 var(--orange-wall),
@@ -36,4 +37,8 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: center;
+}
+
+.key[aria-disabled='true'] {
+  cursor: progress;
 }

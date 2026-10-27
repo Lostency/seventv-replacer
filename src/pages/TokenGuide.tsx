@@ -106,6 +106,10 @@ export function TokenGuide() {
             <strong>Anyone with this token can change your emote sets.</strong> Don’t share it or paste it anywhere
             else. This tool keeps it in your browser and only ever sends it to 7TV.
           </p>
+          <p className={styles.lede}>
+            If 7TV ever stops accepting your token, log out of 7tv.app and log back in. That gives you a fresh token;
+            copy it again the same way.
+          </p>
         </div>
 
         <div className={styles.tablist} role="tablist" aria-label="Your browser">

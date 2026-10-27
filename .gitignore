@@ -28,3 +28,6 @@ dist-ssr
 .wrangler
 .impeccable/mocks/quality-bar
 .impeccable/review
+
+# Local Worker secrets
+.dev.vars

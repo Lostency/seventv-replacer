@@ -1,13 +1,18 @@
 import { Hono } from 'hono';
-import type { Env } from './env';
+import { auth, me } from './routes/auth';
+import { comparisons } from './routes/comparisons';
 import { presets } from './routes/presets';
 import { stats } from './routes/stats';
+import type { AppEnv } from './session';
 
-export const app = new Hono<{ Bindings: Env }>().basePath('/api');
+export const app = new Hono<AppEnv>().basePath('/api');
 
 app.get('/health', (c) => c.json({ ok: true }));
 app.route('/presets', presets);
 app.route('/stats', stats);
+app.route('/auth', auth);
+app.route('/me', me);
+app.route('/comparisons', comparisons);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

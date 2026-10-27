@@ -58,3 +58,9 @@
   background: currentColor;
   vertical-align: 1px;
 }
+
+.hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
