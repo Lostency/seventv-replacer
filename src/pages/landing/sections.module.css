@@ -70,7 +70,8 @@
 }
 
 .functionBody {
-  margin: calc(28px + var(--key-travel)) 0 0;
+  /* Clear the strip below the key: its padding, the key travel and the 18px chassis wall, then air. */
+  margin: calc(var(--strip-pad) + var(--key-travel) + 18px + 20px) 0 0;
   max-width: 38ch;
   color: var(--ink-soft);
 }
