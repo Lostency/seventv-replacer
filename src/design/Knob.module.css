@@ -70,7 +70,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  opacity: 0.62;
+  opacity: 0.74;
   transition: opacity 160ms var(--ease-out);
 }
 

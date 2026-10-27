@@ -1,5 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { mockReducedMotion } from './render';
 
-afterEach(() => cleanup());
+beforeEach(() => mockReducedMotion(false));
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});

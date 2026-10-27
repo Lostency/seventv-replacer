@@ -1,0 +1,205 @@
+/* How it works: three wide function keys, each with its step below it on the mat. */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 3vw, 44px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.stepCap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 64px;
+  margin-bottom: calc(8px + var(--key-travel));
+  padding: 0 18px;
+  border-radius: var(--key-radius);
+  background: var(--bone);
+  box-shadow: var(--key-wall-bone);
+  color: var(--charcoal);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.stepNumber {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--charcoal);
+  border-radius: 50%;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.stepTitle {
+  margin: 0;
+  font-weight: 800;
+  font-stretch: 105%;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.stepBody {
+  margin: 0;
+  max-width: 38ch;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 860px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Safe by default: the spec plate screwed to the back of the deck. */
+.plate {
+  margin: 0;
+  padding: clamp(10px, 1.5vw, 18px) clamp(20px, 3vw, 40px);
+  border-radius: 22px;
+  background: var(--gunmetal);
+  box-shadow: var(--chassis-shadow);
+  color: var(--bone);
+}
+
+.plateRow {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.32fr) minmax(0, 1fr);
+  gap: 8px 32px;
+  padding: 22px 0;
+  border-bottom: 1px solid #50545a;
+}
+
+.plateRow:last-child {
+  border-bottom: 0;
+}
+
+.plateLabel {
+  padding-top: 4px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #b7b2a7;
+}
+
+.plateValue {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.plateValue strong {
+  font-weight: 800;
+  font-stretch: 108%;
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.2;
+}
+
+.plateValue span {
+  max-width: 60ch;
+  color: #cfc9bd;
+}
+
+@media (max-width: 640px) {
+  .plateRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Learned from real channels: the explanation beside the live readouts. */
+.real {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 64px);
+  align-items: center;
+}
+
+.compareLink {
+  display: inline-flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 22px;
+  border-radius: 10px;
+  background: var(--gunmetal);
+  color: var(--bone);
+  box-shadow: 0 5px 0 var(--gunmetal-edge), 0 8px 10px rgb(0 0 0 / 0.25);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+
+.compareLink:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--gunmetal-edge), 0 2px 4px rgb(0 0 0 / 0.25);
+}
+
+.counts {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--gunmetal);
+  box-shadow: var(--chassis-shadow);
+}
+
+.count {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 6px;
+  background: var(--amber);
+  color: var(--amber-glass);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.count dt {
+  font-size: 13px;
+}
+
+.count dd {
+  margin: 0;
+  font-size: clamp(28px, 3.4vw, 44px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 860px) {
+  .real {
+    grid-template-columns: 1fr;
+  }
+}
+
+.madeBy {
+  padding-bottom: clamp(56px, 8vw, 96px);
+}
+
+.madeByText {
+  margin: 0;
+  max-width: 48ch;
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 600;
+  line-height: 1.35;
+}
