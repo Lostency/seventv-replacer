@@ -10,7 +10,8 @@ const GQL_V4 = `${SEVENTV_API}/v4/gql`;
 /** Emote changes per v4 request: v4 takes an array of mutations and answers each one separately. */
 export const BATCH_SIZE = 30;
 
-export type WriteErrorKind = 'auth' | 'rate-limit' | 'refused' | 'network';
+/** 'conflict': 7TV couldn't save the change just then (TRANSACTION_ERROR), nothing wrong with the emote; worth another try. */
+export type WriteErrorKind = 'auth' | 'rate-limit' | 'conflict' | 'refused' | 'network';
 
 export class WriteError extends Error {
   constructor(
@@ -69,6 +70,7 @@ interface GqlResponse<T> {
 
 function classify(status: number, message: string, code?: number): WriteErrorKind {
   if (status === 429 || /rate.?limit|too many/i.test(message)) return 'rate-limit';
+  if (/transaction.?(error|failed)/i.test(message)) return 'conflict';
   if (
     status === 401 ||
     code === 1000 ||
@@ -96,14 +98,18 @@ interface RetryOptions {
 
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** Retries rate limits and dropped connections with exponential backoff; anything else fails at once. */
+/** Worth sending again: 7TV turned it away for its own reasons, not because of the emote or the token. */
+const isTransient = (error: WriteError) =>
+  error.kind === 'rate-limit' || error.kind === 'conflict' || error.kind === 'network';
+
+/** Retries rate limits, failed saves and dropped connections with exponential backoff; anything else fails at once. */
 export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const { retries = 4, baseDelayMs = 1000, sleep: wait = sleep } = options;
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      const retryable = error instanceof WriteError && (error.kind === 'rate-limit' || error.kind === 'network');
+      const retryable = error instanceof WriteError && isTransient(error);
       if (!retryable || attempt >= retries) throw error;
       await wait(baseDelayMs * 2 ** attempt);
     }
@@ -198,9 +204,9 @@ export function createWriter(
       if (batching) {
         try {
           const answers = await withRetry(() => batch(field, setId, chunk), options);
-          // Emotes 7TV turned away for going too fast get one more paced try each.
+          // Emotes 7TV turned away for going too fast, or couldn't save alongside the rest, get paced tries of their own.
           for (const [i, answer] of answers.entries()) {
-            if (!answer.ok && answer.error.kind === 'rate-limit') {
+            if (!answer.ok && isTransient(answer.error)) {
               await wait(options.baseDelayMs ?? 1000);
               answers[i] = (await oneByOne(action, setId, [chunk[i]!]))[0]!;
             }
