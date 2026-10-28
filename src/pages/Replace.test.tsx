@@ -136,7 +136,7 @@ describe('Replace', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Log out of 7tv.app and log back in');
   });
 
-  it('pauses on a refused name, asks for a new one, and lists the rename', async () => {
+  it('carries on past a refused name, lists it under Problems, and retries it with a new name', async () => {
     sets[SET_ID]!.emotes = [['a,b', A], ['KEKW', X]];
     mockFetch({
       ...sevenTvRead(sets, (change) => {
@@ -150,16 +150,104 @@ describe('Replace', () => {
     await pickMain();
     await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
 
-    const dialog = await screen.findByRole('alertdialog', {}, { timeout: 4000 });
-    expect(dialog).toHaveTextContent('7TV refused the name “a,b”');
-    expect(within(dialog).getByLabelText('New name')).toHaveValue('ab');
-    expect(within(dialog).getByLabelText('New name')).toHaveFocus();
-    expect(screen.getByRole('status')).toHaveTextContent('Waiting for you');
-
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Use this name' }));
     await screen.findByRole('heading', { name: 'Run finished' }, { timeout: 4000 });
-    expect(screen.getByText('a,b → ab')).toBeInTheDocument();
-    expect(mutations).toContainEqual({ id: 'NEW', action: 'ADD', emote_id: A2, name: 'ab' });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByText('a,b was set aside. The run carries on.')).toBeInTheDocument();
+    const problems = screen.getByRole('region', { name: 'Problems' });
+    expect(within(problems).getByText(/Invalid emote name/)).toBeInTheDocument();
+    expect(within(problems).getByLabelText('New name for a,b')).toHaveValue('ab');
+    expect(JSON.parse(localStorage.getItem('ser.problems')!)).toHaveLength(1);
+
+    sets.NEW = { name: 'Main (Halloween)', emotes: [['KEKW', X]] };
+    mutations.length = 0;
+    await userEvent.click(within(problems).getByRole('button', { name: 'Retry a,b' }));
+    await screen.findByText('a,b is in as “ab”.', {}, { timeout: 4000 });
+    expect(mutations).toEqual([{ id: 'NEW', action: 'ADD', emote_id: A2, name: 'ab' }]);
+    expect(screen.queryByRole('region', { name: 'Problems' })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('ser.problems')!)).toEqual([]);
+  });
+
+  it('takes a fix made during the run, and Undo knows about it', async () => {
+    sets[SET_ID]!.emotes = [['a,b', A], ['Sadge', B]];
+    mockFetch({
+      ...sevenTvRead(sets, (change) => {
+        mutations.push(change);
+        // Taking "a,b" out works; putting anything in under it doesn't.
+        return change.action === 'ADD' && change.name?.includes(',') ? 'Invalid emote name' : undefined;
+      }),
+      '/api/presets/': (url) => preset(url.split('/').pop()!),
+    });
+    renderAt('/replace?channel=niena&season=halloween');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'tok');
+    await pickMain();
+    await userEvent.click(screen.getByRole('radio', { name: 'In place' }));
+    await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
+
+    const problems = await screen.findByRole('region', { name: 'Problems' }, { timeout: 4000 });
+    // 7TV took neither version under "a,b": the set is short it until the fix.
+    sets[SET_ID]!.emotes = [['Sadge', B2]];
+    await userEvent.click(within(problems).getByRole('button', { name: 'Retry a,b' }));
+    await screen.findByRole('heading', { name: 'Run finished' }, { timeout: 4000 });
+    await screen.findByText('a,b is in as “ab”.', {}, { timeout: 4000 });
+    expect(mutations).toContainEqual({ id: SET_ID, action: 'ADD', emote_id: A2, name: 'ab' });
+    expect(JSON.parse(localStorage.getItem('ser.runs')!)[0].swaps).toContainEqual({
+      fromId: A,
+      toId: A2,
+      alias: 'ab',
+      originalAlias: 'a,b',
+    });
+  });
+
+  it('tells the admins about a broken seasonal emote, and lets the user dismiss it', async () => {
+    const reports: unknown[] = [];
+    mockFetch({
+      ...sevenTvRead(sets, (change) => (change.emote_id === A2 ? 'Unknown Emote' : undefined)),
+      'https://7tv.io/v3/emotes/': () => json({ error: 'emote not found' }, 404),
+      '/api/broken-emotes': (_url, init) => {
+        reports.push(JSON.parse(String(init?.body)));
+        return new Response(null, { status: 202 });
+      },
+      '/api/presets/': (url) => preset(url.split('/').pop()!),
+    });
+    renderAt('/replace?channel=niena&season=halloween');
+    await userEvent.type(screen.getByLabelText('7TV token', { exact: true }), 'tok');
+    await pickMain();
+    await userEvent.click(screen.getByRole('button', { name: /make seasonal/i }));
+    await screen.findByRole('heading', { name: 'Run finished' }, { timeout: 4000 });
+
+    expect(reports).toEqual([{ season: 'halloween', originalId: A, replacementId: A2, brokenId: A2, reason: 'Unknown Emote' }]);
+    const problems = screen.getByRole('region', { name: 'Problems' });
+    expect(within(problems).getByText(/gone or unusable on 7TV/)).toBeInTheDocument();
+    expect(within(problems).queryByRole('button', { name: 'Retry peepoHappy' })).not.toBeInTheDocument();
+    await userEvent.click(within(problems).getByRole('button', { name: 'Dismiss peepoHappy' }));
+    expect(screen.queryByRole('region', { name: 'Problems' })).not.toBeInTheDocument();
+  });
+
+  it('keeps problems from an earlier visit until they are dealt with', async () => {
+    localStorage.setItem(
+      'ser.problems',
+      JSON.stringify([
+        {
+          id: 'P1',
+          runId: 'R1',
+          kind: 'refused',
+          mode: 'in-place',
+          season: 'halloween',
+          setId: SET_ID,
+          setName: 'Main',
+          alias: 'a,b',
+          emoteId: A2,
+          normalId: A,
+          pairing: { originalId: A, replacementId: A2 },
+          reason: 'Invalid emote name',
+          at: '2026-10-28T12:00:00.000Z',
+        },
+      ]),
+    );
+    renderAt('/replace');
+    const problems = screen.getByRole('region', { name: 'Problems' });
+    expect(within(problems).getByText('Main')).toBeInTheDocument();
+    expect(within(problems).getByLabelText('New name for a,b')).toBeInTheDocument();
   });
 
   it('keeps names with umlauts and accents as they are', async () => {

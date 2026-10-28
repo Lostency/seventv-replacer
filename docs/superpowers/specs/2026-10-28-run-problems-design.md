@@ -85,3 +85,10 @@ An emote that a duplicate only copies unchanged and that 7TV refuses is a **miss
 - Fixes during a run are queued between batches rather than sent at once.
 - A successful fix joins the original run's Undo record.
 - Undoing a run clears that run's problems.
+
+## Changed while building
+
+- A refused name usually means the normal emote's name is refused too, so the emote ends up **missing**. A missing emote from a swap therefore keeps both versions, and its fix adds the **seasonal** emote under the new name (Undo then swaps the normal one back). Only an unchanged copy's fix adds the normal emote.
+- Problems tell what happened in 7TV's words. Besides refused names, a save 7TV couldn't make (after its retries) is also a refused problem the user can retry.
+- The run report's "renamed" list is gone: each fix announces itself ("a,b is in as “ab”.") and joins the run's Undo.
+- Broken reports are folded per pairing and shown only while that pairing is still the season's mapping, so changing or deleting a mapping hides its report, and undoing that brings it back. Dismissing deletes the report; Undo puts it back as it was.

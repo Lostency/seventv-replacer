@@ -1,23 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useSearchParams } from 'react-router';
 import { currentSeason, isSeasonId, SEASONS, seasonLabel, type SeasonId } from '@shared/seasons';
 import { fetchEmoteSet, seventvSetUrl, type EmoteSet } from '@shared/seventv';
 import type { MappingRow } from '@shared/types';
-import { fetchPreset } from '../api';
+import { fetchPreset, reportBroken } from '../api';
+import { ProblemList } from '../components/ProblemList';
 import { SetPicker } from '../components/SetPicker';
 import { ActionKey } from '../design/ActionKey';
 import { AmberScreen } from '../design/AmberScreen';
 import { DeckField } from '../design/DeckField';
 import { GunmetalKey } from '../design/GunmetalKey';
 import { Knob } from '../design/Knob';
+import { Notice } from '../design/Notice';
 import { SiteFooter } from '../design/SiteFooter';
 import { SiteHeader } from '../design/SiteHeader';
 import { SwapList } from '../design/SwapList';
-import { RenameDialog, type PendingQuestion } from '../components/RenameDialog';
-import { executeRun, planSwaps, type AliasQuestion, type RunMode, type RunRecord, type RunReport } from '../lib/run';
-import { createWriter } from '../lib/seventv-write';
-import { cleanToken, forgetRun, loadRuns, loadToken, rememberRun, saveToken } from '../lib/storage';
+import { fixProblem, recordFix } from '../lib/problems';
+import { executeRun, planSwaps, type RunMode, type RunProblem, type RunRecord, type RunReport } from '../lib/run';
+import { createWriter, type SetWriter } from '../lib/seventv-write';
+import {
+  cleanToken,
+  forgetProblem,
+  forgetRun,
+  forgetRunProblems,
+  loadProblems,
+  loadRuns,
+  loadToken,
+  rememberRun,
+  saveToken,
+  updateProblems,
+  updateRun,
+} from '../lib/storage';
 import { undoRun, type UndoReport } from '../lib/undo';
 import styles from './Workbench.module.css';
 
@@ -44,6 +58,9 @@ type RunState =
   | { kind: 'failed'; message: string };
 
 type UndoResult = { record: RunRecord; report?: UndoReport; error?: string };
+
+/** A new name for a set-aside emote, waiting for the run's next break. */
+type QueuedFix = { problem: RunProblem; name: string };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const errorText = (error: unknown) => (error instanceof Error ? error.message : 'Something went wrong. Try again.');
@@ -90,9 +107,17 @@ export function Replace() {
   const [runs, setRuns] = useState<RunRecord[]>(loadRuns);
   const [undoing, setUndoing] = useState<string>();
   const [undoResult, setUndoResult] = useState<UndoResult>();
-  const [question, setQuestion] = useState<PendingQuestion>();
-  // Time the run spends waiting on the user doesn't count toward the estimate.
-  const clock = useRef({ started: 0, waiting: 0, askedAt: 0, skipAll: false });
+  const started = useRef(0);
+
+  const [problems, setProblems] = useState<RunProblem[]>(loadProblems);
+  const [queued, setQueued] = useState<ReadonlySet<string>>(() => new Set());
+  const [fixing, setFixing] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const clearNotice = useCallback(() => setNotice(null), []);
+  // While a run goes, fixes wait for its next break, and those to its own emotes join its record when it saves.
+  const activeRun = useRef<{ id: string; writer: SetWriter } | null>(null);
+  const fixQueue = useRef<QueuedFix[]>([]);
+  const runFixes = useRef<QueuedFix[]>([]);
 
   const label = seasonLabel(season);
   const running = runState.kind === 'running';
@@ -127,7 +152,6 @@ export function Replace() {
 
   const readout = (() => {
     if (runState.kind === 'running') {
-      if (question) return 'Waiting for you';
       const progress = `${mode === 'duplicate' ? 'Copying' : 'Swapping'} · ${runState.done}/${runState.total}`;
       return runState.msLeft === undefined ? progress : `${progress} · ${timeLeft(runState.msLeft)}`;
     }
@@ -172,32 +196,36 @@ export function Replace() {
     }
 
     const source = set;
+    const writer = createWriter(token);
     setUndoResult(undefined);
     setRunState({ kind: 'running', done: 0, total: mode === 'duplicate' ? source.emotes.length : ticked.length });
-    clock.current = { started: Date.now(), waiting: 0, askedAt: 0, skipAll: false };
+    started.current = Date.now();
+    runFixes.current = [];
 
     const onProgress = (done: number, total: number) => {
-      const { started, waiting } = clock.current;
-      const perEmote = (Date.now() - started - waiting) / done;
+      const perEmote = (Date.now() - started.current) / done;
       setRunState({ kind: 'running', done, total, msLeft: done >= ETA_AFTER ? perEmote * (total - done) : undefined });
     };
 
-    // 7TV refused a name: the run waits here until the user picks a new one or skips.
-    const askAlias = (q: AliasQuestion) => {
-      if (clock.current.skipAll) return Promise.resolve(null);
-      clock.current.askedAt = Date.now();
-      return new Promise<string | null>((resolve) =>
-        setQuestion({
-          question: q,
-          answer: (name, skipRest) => {
-            clock.current.waiting += Date.now() - clock.current.askedAt;
-            if (skipRest) clock.current.skipAll = true;
-            setQuestion(undefined);
-            resolve(name);
-          },
-        }),
-      );
+    // An emote 7TV won't take never stops the run: it is saved for the user, and a broken one goes to the admins.
+    const onProblem = (problem: RunProblem) => {
+      if (activeRun.current) activeRun.current.id = problem.runId;
+      setProblems(updateProblems((list) => [...list, problem]));
+      setNotice(`${problem.alias} was set aside. The run carries on.`);
+      if (problem.kind === 'broken' && problem.pairing) {
+        reportBroken({ season: problem.season, ...problem.pairing, brokenId: problem.emoteId, reason: problem.reason }).catch(
+          () => {},
+        );
+      }
     };
+    const withFixes = (record: RunRecord) =>
+      runFixes.current.reduce((r, f) => recordFix(r, f.problem, f.name), record);
+    const onRecord = (record: RunRecord) => {
+      if (activeRun.current) activeRun.current.id = record.id;
+      setRuns(rememberRun(withFixes(record)));
+    };
+    // The record's id is known from the run's first save or problem.
+    activeRun.current = { id: '', writer };
 
     try {
       const report = await executeRun(
@@ -213,17 +241,66 @@ export function Replace() {
                 ? { kind: 'existing', set: existingTarget }
                 : { kind: 'new', name: copyName.trim() },
         },
-        createWriter(token),
-        { onProgress, askAlias, onRecord: (record) => setRuns(rememberRun(record)) },
+        writer,
+        { onProgress, onRecord, onProblem, between: drainFixes },
       );
-      const { record } = report;
+      // Fixes queued during the last batch go in before the run counts as done.
+      await drainFixes();
+      const record = withFixes(report.record);
       if (record.createdSet || record.swaps.length || record.added.length) setRuns(rememberRun(record));
       setRunState({ kind: 'done', report });
       // The set itself changed: show what it holds now.
       if (mode !== 'duplicate') fetchEmoteSet(source.id).then(setSet, () => {});
     } catch (error) {
       setRunState({ kind: 'failed', message: errorText(error) });
+    } finally {
+      activeRun.current = null;
+      runFixes.current = [];
     }
+  };
+
+  /** Tries a set-aside emote again; on success the problem goes and Undo learns about the fix. */
+  const applyFix = async ({ problem, name }: QueuedFix, writer: SetWriter) => {
+    setFixing(problem.id);
+    try {
+      await fixProblem(problem, name, writer);
+      setProblems(forgetProblem(problem.id));
+      if (activeRun.current?.id === problem.runId) runFixes.current.push({ problem, name });
+      else setRuns(updateRun(problem.runId, (r) => recordFix(r, problem, name)));
+      setNotice(`${problem.alias} is in as “${name}”.`);
+    } catch (error) {
+      const reason = errorText(error);
+      setProblems(updateProblems((list) => list.map((p) => (p.id === problem.id ? { ...p, reason } : p))));
+      setNotice(`${problem.alias} still isn’t in: ${reason}`);
+    } finally {
+      setFixing(null);
+    }
+  };
+
+  /** The run's break between batches: queued fixes go in one by one, with the run's own writer. */
+  const drainFixes = async () => {
+    const writer = activeRun.current?.writer;
+    if (!writer) return;
+    for (const fix of fixQueue.current.splice(0)) {
+      await applyFix(fix, writer);
+      setQueued((q) => new Set([...q].filter((id) => id !== fix.problem.id)));
+    }
+  };
+
+  const fix = (problem: RunProblem, name: string) => {
+    if (!token) return needToken();
+    if (activeRun.current) {
+      fixQueue.current.push({ problem, name });
+      setQueued((q) => new Set(q).add(problem.id));
+      return;
+    }
+    void applyFix({ problem, name }, createWriter(token));
+  };
+
+  const dismiss = (problem: RunProblem) => {
+    fixQueue.current = fixQueue.current.filter((f) => f.problem.id !== problem.id);
+    setQueued((q) => new Set([...q].filter((id) => id !== problem.id)));
+    setProblems(forgetProblem(problem.id));
   };
 
   const undo = async (record: RunRecord) => {
@@ -235,6 +312,8 @@ export function Replace() {
       const report = await undoRun(record, createWriter(token));
       // Keep a record whose undo partly failed: running it again skips what is already back.
       setRuns(report.failed.length ? loadRuns() : forgetRun(record.id));
+      // The run's set-aside emotes went back with everything else.
+      setProblems(forgetRunProblems(record.id));
       setUndoResult({ record, report });
       if (set?.id === record.setId) fetchEmoteSet(set.id).then(setSet, () => {});
     } catch (error) {
@@ -431,14 +510,16 @@ export function Replace() {
           </ActionKey>
         </section>
 
-        {question && <RenameDialog pending={question} season={label} />}
-
         {runState.kind === 'failed' && (
           <p className={styles.plate} role="alert">
             {runState.message}
           </p>
         )}
         {runState.kind === 'done' && <RunSummary report={runState.report} />}
+
+        {problems.length > 0 && (
+          <ProblemList problems={problems} queued={queued} fixing={fixing} onFix={fix} onDismiss={dismiss} />
+        )}
 
         {(runs.length > 0 || undoResult) && (
           <section className={styles.step} aria-labelledby="runs-heading">
@@ -468,6 +549,7 @@ export function Replace() {
           </section>
         )}
       </main>
+      <Notice message={notice} onDone={clearNotice} />
       <SiteFooter />
     </>
   );
@@ -500,21 +582,9 @@ function RunSummary({ report }: { report: RunReport }) {
           <strong>
             {plural(report.lost.length, 'emote is', 'emotes are')} missing from the set now: {report.lost.join(', ')}.
           </strong>{' '}
-          7TV refused both the swap and putting the original back. Add {report.lost.length === 1 ? 'it' : 'them'} back
-          on 7TV.
+          7TV refused both the swap and putting the original back. {report.lost.length === 1 ? 'It’s' : 'They’re'} under
+          Problems below: a name 7TV accepts brings {report.lost.length === 1 ? 'it' : 'them'} back.
         </p>
-      )}
-      {report.renamed.length > 0 && (
-        <div className={styles.listBlock}>
-          <p className={styles.listHeading}>Renamed to fit 7TV’s rules</p>
-          <ul className={styles.facts}>
-            {report.renamed.map((r) => (
-              <li key={r.from}>
-                {r.from} → {r.to}
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
       {report.failed.length > 0 && (
         <div className={styles.listBlock}>
