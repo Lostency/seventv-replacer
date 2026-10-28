@@ -182,6 +182,11 @@ export function Compare() {
           <>
             <p className={styles.signedIn}>
               Signed in as {user.displayName}
+              {user.admin && (
+                <GunmetalKey size="small" href="/review">
+                  Review
+                </GunmetalKey>
+              )}
               <GunmetalKey size="small" onClick={() => void leave()}>
                 Sign out
               </GunmetalKey>
