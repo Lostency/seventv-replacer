@@ -171,6 +171,28 @@ export async function fetchChannelSets(login: string, fetchFn: Fetch = fetch): P
   return { channel, sets };
 }
 
+/** 'broken': gone, private or not live on 7TV, so no set can take it. 'unknown': 7TV couldn't be asked. */
+export type EmoteHealth = 'ok' | 'broken' | 'unknown';
+
+/** 7TV's emote lifecycle once processing is done; anything else (deleted, failed, still processing) can't be used. */
+const LIVE = 3;
+const PRIVATE_FLAG = 1;
+
+/** Whether 7TV still has the emote in a state a set can take. */
+export async function checkEmote(id: string, fetchFn: Fetch = fetch): Promise<EmoteHealth> {
+  try {
+    const { status, body } = await readJson(fetchFn, `${SEVENTV_API}/v3/emotes/${encodeURIComponent(id)}`);
+    if (status === 404 || status === 400) return 'broken';
+    if (status !== 200 || !body || typeof body !== 'object') return 'unknown';
+    const { lifecycle, flags } = body as { lifecycle?: number; flags?: number };
+    if (typeof lifecycle === 'number' && lifecycle !== LIVE) return 'broken';
+    if (typeof flags === 'number' && (flags & PRIVATE_FLAG) !== 0) return 'broken';
+    return 'ok';
+  } catch {
+    return 'unknown';
+  }
+}
+
 export function seventvSetUrl(id: string): string {
   return `https://7tv.app/emote-sets/${id}`;
 }

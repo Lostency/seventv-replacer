@@ -83,6 +83,34 @@ export interface ReviewResponse {
   candidates: Candidate[];
 }
 
+/** A run found one side of a preset mapping deleted or unusable on 7TV. Sent by Replace, without sign-in. */
+export interface BrokenReport {
+  season: SeasonId;
+  originalId: string;
+  replacementId: string;
+  /** Which of the two broke: the seasonal emote, or in a revert the normal one. */
+  brokenId: string;
+  /** 7TV's own words. */
+  reason: string;
+}
+
+/** One broken mapping as admins see it: every report of it folded into one row. */
+export interface BrokenEmote {
+  originalId: string;
+  replacementId: string;
+  brokenId: string;
+  /** The latest report's words from 7TV. */
+  reason: string;
+  reports: number;
+  firstSeen: string;
+  lastSeen: string;
+}
+
+export interface BrokenListResponse {
+  season: SeasonId;
+  broken: BrokenEmote[];
+}
+
 /** Where a mapping came from: the original presets, the review queue, or two pasted links. */
 export type MappingSource = 'seed' | 'review' | 'manual';
 

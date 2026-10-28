@@ -81,6 +81,29 @@
   white-space: nowrap;
 }
 
+.brokenList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brokenMeta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.replace {
+  display: grid;
+  gap: 12px;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

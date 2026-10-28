@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { currentSeason, SEASONS, seasonLabel, type SeasonId } from '@shared/seasons';
-import type { AdminMapping, Candidate, MappingWritten, MeResponse, ReviewResponse } from '@shared/types';
+import type { AdminMapping, BrokenEmote, Candidate, MappingWritten, MeResponse, ReviewResponse } from '@shared/types';
 import {
   decide as sendDecision,
   deleteMapping,
   fetchMe,
   fetchReview,
   rejectPairing,
+  restoreBroken,
   saveThreshold,
   signInUrl,
   unrejectPairing,
@@ -20,6 +21,7 @@ import { SiteFooter } from '../design/SiteFooter';
 import { SiteHeader } from '../design/SiteHeader';
 import { UndoToast } from '../design/UndoToast';
 import { AddMapping } from './review/AddMapping';
+import { BrokenEmotes } from './review/BrokenEmotes';
 import { ChoiceCard } from './review/ChoiceCard';
 import { Mappings } from './review/Mappings';
 import { ReviewCard } from './review/ReviewCard';
@@ -152,6 +154,12 @@ export function Review() {
       message: previous ? 'Replaced the mapping.' : 'Added the mapping.',
       undo: () => (previous ? writeMapping({ season, ...previous }) : deleteMapping(season, originalId)),
     });
+    refresh();
+  };
+
+  const dismissed = (row: BrokenEmote) => {
+    setProblem(undefined);
+    setToast({ message: 'Dismissed the report.', undo: () => restoreBroken(season, row) });
     refresh();
   };
 
@@ -299,6 +307,24 @@ export function Review() {
                   })}
                 </ul>
               )}
+            </section>
+
+            <section className={styles.step} aria-labelledby="broken-heading">
+              <h2 id="broken-heading" className={styles.sectionHeading}>
+                Broken emotes
+              </h2>
+              <p className={styles.stepLede}>
+                Mappings whose emote Replace runs found deleted or unusable on 7TV. Runs used the normal emote instead.
+                Replace or delete the mapping, or dismiss the report if 7TV has it working again.
+              </p>
+              <BrokenEmotes
+                season={season}
+                version={version}
+                onReplaced={added}
+                onDeleted={deleted}
+                onDismissed={dismissed}
+                onProblem={setProblem}
+              />
             </section>
 
             <section className={styles.step} aria-labelledby="add-heading">

@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AdminMapping, Candidate } from '@shared/types';
+import type { AdminMapping, BrokenEmote, Candidate } from '@shared/types';
 import { json, mockFetch, renderAt } from '../test/render';
 
 const admin = { user: { login: 'niena', displayName: 'niena', admin: true }, signInAvailable: true };
@@ -21,7 +21,13 @@ type Call = { method: string; url: string; body?: unknown };
 /** An admin's server: the queue answers `queue()` each time, writes are recorded. */
 function adminServer(
   queue: () => Candidate[],
-  answers: { mapping?: unknown; decision?: unknown; mappings?: () => AdminMapping[]; deleted?: AdminMapping } = {},
+  answers: {
+    mapping?: unknown;
+    decision?: unknown;
+    mappings?: () => AdminMapping[];
+    deleted?: AdminMapping;
+    broken?: () => BrokenEmote[];
+  } = {},
 ) {
   const calls: Call[] = [];
   const record = (url: string, init?: RequestInit) => {
@@ -48,6 +54,15 @@ function adminServer(
     '/api/admin/rejections': (url, init) => {
       const method = record(url, init);
       return method === 'DELETE' ? new Response(null, { status: 204 }) : json({}, 201);
+    },
+    '/api/admin/broken/': (url, init) => {
+      const method = record(url, init);
+      const list = answers.broken?.() ?? [];
+      return method === 'DELETE' ? json({ dismissed: list[0] ?? null }) : json({ season: 'halloween', broken: list });
+    },
+    '/api/admin/broken': (url, init) => {
+      record(url, init);
+      return json({});
     },
     '/api/admin/decisions': (url, init) => {
       record(url, init);
@@ -294,5 +309,66 @@ describe('Review: the preset', () => {
       ],
     });
     expect(text.endsWith('\n')).toBe(true);
+  });
+});
+
+describe('Review: broken emotes', () => {
+  const report: BrokenEmote = {
+    originalId: 'O1',
+    replacementId: 'R1',
+    brokenId: 'R1',
+    reason: 'Emote is private',
+    reports: 3,
+    firstSeen: '2026-10-27 12:00:00',
+    lastSeen: '2026-10-28 09:00:00',
+  };
+
+  it('lists them apart from the queue, with what 7TV said and how often', async () => {
+    adminServer(() => [], { broken: () => [report] });
+    renderAt('/review');
+    const section = await screen.findByRole('region', { name: 'Broken emotes' });
+    expect(await within(section).findByText(/Emote is private/)).toBeInTheDocument();
+    expect(within(section).getByText(/The seasonal emote broke/)).toBeInTheDocument();
+    expect(within(section).getByText(/Reported 3 times/)).toBeInTheDocument();
+    expect(within(section).getByRole('link', { name: 'O1, normal on 7TV' })).toBeInTheDocument();
+  });
+
+  it('dismisses a report, and Undo puts it back', async () => {
+    const calls = adminServer(() => [], { broken: () => [report] });
+    renderAt('/review');
+    const section = await screen.findByRole('region', { name: 'Broken emotes' });
+    await userEvent.click(await within(section).findByRole('button', { name: 'Dismiss O1' }));
+    expect(await screen.findByText('Dismissed the report.')).toBeInTheDocument();
+    expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/broken/halloween/O1/R1', body: undefined });
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'PUT', url: '/api/admin/broken', body: { season: 'halloween', ...report } }),
+    );
+  });
+
+  it('replaces the broken seasonal emote from a pasted link', async () => {
+    const calls = adminServer(() => [], { broken: () => [report], mapping: { previous: row('O1', 'R1') } });
+    renderAt('/review');
+    const section = await screen.findByRole('region', { name: 'Broken emotes' });
+    await userEvent.click(await within(section).findByRole('button', { name: 'Replace O1' }));
+    await userEvent.type(within(section).getByLabelText('New seasonal emote link'), `https://7tv.app/emotes/${B}`);
+    await userEvent.click(within(section).getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Replaced the mapping.')).toBeInTheDocument();
+    expect(calls).toContainEqual({
+      method: 'PUT',
+      url: '/api/admin/mappings',
+      body: { season: 'halloween', originalId: 'O1', replacementId: B, source: 'manual' },
+    });
+  });
+
+  it('deletes the mapping of a broken normal emote', async () => {
+    const calls = adminServer(() => [], { broken: () => [{ ...report, brokenId: 'O1' }], deleted: row('O1', 'R1') });
+    renderAt('/review');
+    const section = await screen.findByRole('region', { name: 'Broken emotes' });
+    expect(await within(section).findByText(/The normal emote broke/)).toBeInTheDocument();
+    expect(within(section).queryByRole('button', { name: 'Replace O1' })).not.toBeInTheDocument();
+    await userEvent.click(within(section).getByRole('button', { name: 'Delete mapping O1' }));
+    expect(await screen.findByText('Deleted the mapping.')).toBeInTheDocument();
+    expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/mappings/halloween/O1', body: undefined });
   });
 });

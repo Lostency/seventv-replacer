@@ -5,6 +5,8 @@ import type {
   AdminMapping,
   AdminMappingsResponse,
   ApiError,
+  BrokenEmote,
+  BrokenListResponse,
   MappingDeleted,
   MappingWritten,
   ReviewResponse,
@@ -121,6 +123,60 @@ admin.delete('/mappings/:season/:originalId', async (c) => {
     .first<AdminMapping>();
   const body: MappingDeleted = { deleted: deleted ?? null };
   return c.json(body, 200, NO_STORE);
+});
+
+/** `prefix` names the table when a join makes the columns ambiguous. */
+const brokenColumns = (prefix = '') =>
+  `${prefix}original_id AS originalId, ${prefix}replacement_id AS replacementId, ${prefix}broken_id AS brokenId,
+  ${prefix}reason, ${prefix}reports, ${prefix}first_seen AS firstSeen, ${prefix}last_seen AS lastSeen`;
+const brokenRow = z.object({
+  season: z.enum(SEASONS),
+  originalId: emoteId,
+  replacementId: emoteId,
+  brokenId: emoteId,
+  reason: z.string().max(300),
+  reports: z.number().int().min(1),
+  firstSeen: z.string().max(40),
+  lastSeen: z.string().max(40),
+});
+
+/** Reports whose pairing is still the season's mapping: one that was changed or deleted since drops out. */
+admin.get('/broken/:season', async (c) => {
+  const season = c.req.param('season');
+  if (!isSeasonId(season)) return c.json<ApiError>({ error: 'Unknown season' }, 404);
+  const { results } = await c.env.DB.prepare(
+    `SELECT ${brokenColumns('b.')} FROM broken_reports b
+       JOIN mappings m ON m.season = b.season AND m.original_id = b.original_id AND m.replacement_id = b.replacement_id
+      WHERE b.season = ? ORDER BY b.last_seen DESC`,
+  )
+    .bind(season)
+    .all<BrokenEmote>();
+  const body: BrokenListResponse = { season, broken: results };
+  return c.json(body, 200, NO_STORE);
+});
+
+admin.delete('/broken/:season/:originalId/:replacementId', async (c) => {
+  const { season, originalId, replacementId } = c.req.param();
+  const dismissed = await c.env.DB.prepare(
+    `DELETE FROM broken_reports WHERE season = ? AND original_id = ? AND replacement_id = ? RETURNING ${brokenColumns()}`,
+  )
+    .bind(season, originalId, replacementId)
+    .first<BrokenEmote>();
+  return c.json({ dismissed: dismissed ?? null }, 200, NO_STORE);
+});
+
+/** Only the Undo toast calls this: puts a dismissed report back exactly as it was. */
+admin.put('/broken', async (c) => {
+  const parsed = brokenRow.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json<ApiError>({ error: 'That report can’t be put back.' }, 400);
+  const { season, originalId, replacementId, brokenId, reason, reports, firstSeen, lastSeen } = parsed.data;
+  await c.env.DB.prepare(
+    `INSERT OR REPLACE INTO broken_reports (season, original_id, replacement_id, broken_id, reason, reports, first_seen, last_seen)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(season, originalId, replacementId, brokenId, reason, reports, firstSeen, lastSeen)
+    .run();
+  return c.json({}, 200, NO_STORE);
 });
 
 admin.post('/rejections', async (c) => {
