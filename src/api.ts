@@ -6,8 +6,14 @@ import type {
   ComparisonSubmitRequest,
   ComparisonSubmitted,
   Cooldown,
+  AdminMappingsResponse,
+  MappingDeleted,
+  MappingWrite,
+  MappingWritten,
   MeResponse,
   PresetResponse,
+  RejectionRequest,
+  ReviewResponse,
   StatsResponse,
 } from '@shared/types';
 
@@ -29,12 +35,13 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function postJson<T>(path: string, body?: unknown): Promise<T> {
+/** A call whose failures carry the server's own message, e.g. "Review is for admins." */
+async function sendJson<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
   let response: Response;
   try {
     response = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method,
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
@@ -47,6 +54,8 @@ async function postJson<T>(path: string, body?: unknown): Promise<T> {
   }
   return json as T;
 }
+
+const postJson = <T,>(path: string, body?: unknown) => sendJson<T>('POST', path, body);
 
 export const fetchStats = (signal?: AbortSignal) => getJson<StatsResponse>('/api/stats', signal);
 
@@ -64,3 +73,24 @@ export const previewComparison = (body: ComparisonPreviewRequest) =>
 
 export const submitComparison = (body: ComparisonSubmitRequest) =>
   postJson<ComparisonSubmitted>('/api/comparisons', body);
+
+export const fetchReview = (season: SeasonId) => sendJson<ReviewResponse>('GET', `/api/admin/review/${season}`);
+
+export const saveThreshold = (threshold: number) =>
+  sendJson<{ threshold: number }>('PUT', '/api/admin/threshold', { threshold });
+
+export const fetchAdminMappings = (season: SeasonId) =>
+  sendJson<AdminMappingsResponse>('GET', `/api/admin/mappings/${season}`);
+
+export const writeMapping = ({ season, originalId, replacementId, source }: MappingWrite) =>
+  sendJson<MappingWritten>('PUT', '/api/admin/mappings', { season, originalId, replacementId, source });
+
+export const deleteMapping = (season: SeasonId, originalId: string) =>
+  sendJson<MappingDeleted>('DELETE', `/api/admin/mappings/${season}/${encodeURIComponent(originalId)}`);
+
+export const rejectPairing = ({ season, originalId, replacementId }: RejectionRequest) =>
+  sendJson<unknown>('POST', '/api/admin/rejections', { season, originalId, replacementId });
+
+/** Only the Undo toast lifts a rejection. */
+export const unrejectPairing = ({ season, originalId, replacementId }: RejectionRequest) =>
+  sendJson<void>('DELETE', `/api/admin/rejections/${season}/${encodeURIComponent(originalId)}/${encodeURIComponent(replacementId)}`);
