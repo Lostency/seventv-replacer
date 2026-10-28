@@ -48,6 +48,19 @@ describe('Compare', () => {
     expect(await screen.findByText(/sign-in isn’t set up on this server yet/)).toBeInTheDocument();
   });
 
+  it('links admins to review', async () => {
+    mockFetch({ '/api/me': () => json({ ...signedIn, user: { ...signedIn.user, admin: true } }) });
+    renderAt('/compare');
+    expect(await screen.findByRole('link', { name: 'Review' })).toHaveAttribute('href', '/review');
+  });
+
+  it('shows no review link to other users', async () => {
+    mockFetch({ '/api/me': () => json(signedIn) });
+    renderAt('/compare');
+    await screen.findByText(/Signed in as Viewer/);
+    expect(screen.queryByRole('link', { name: 'Review' })).not.toBeInTheDocument();
+  });
+
   it('sends only the set IDs, the season and the unticked pairs', async () => {
     const bodies: unknown[] = [];
     mockFetch({

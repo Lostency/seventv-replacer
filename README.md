@@ -31,7 +31,7 @@ npx wrangler secret put TWITCH_CLIENT_ID
 npx wrangler secret put TWITCH_CLIENT_SECRET
 ```
 
-The Twitch application needs `https://seasonal-emote-replacer.<your-account>.workers.dev/api/auth/callback` as a redirect URL. Admins are the Twitch logins in `ADMIN_LOGINS` (`wrangler.jsonc`).
+The Twitch application needs `https://seasonal-emote-replacer.<your-account>.workers.dev/api/auth/callback` as a redirect URL. Admins are the Twitch logins in `ADMIN_LOGINS` (`wrangler.jsonc`). They review candidates and edit the presets at `/review`; Compare links there once they're signed in.
 
 Then, for every release (run `npm run db:migrate:remote` first whenever `migrations/` has a new file):
 

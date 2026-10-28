@@ -54,6 +54,8 @@ type Fetch = typeof fetch;
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/i;
 const OBJECT_ID = /^[0-9a-f]{24}$/i;
 const SET_URL = /7tv\.app\/emote-sets\/([0-9A-Za-z]+)/i;
+// An emote page (7tv.app/emotes/<id>, any subdomain) or a CDN image (cdn.7tv.app/emote/<id>/4x.webp).
+const EMOTE_URL = /7tv\.app\/emotes?\/([0-9A-Za-z]+)/i;
 const TWITCH_LOGIN = /^[A-Za-z0-9_]{1,25}$/;
 
 export function isEmoteId(value: string): boolean {
@@ -65,6 +67,13 @@ export function parseSetRef(input: string): string | null {
   const text = input.trim();
   const fromUrl = SET_URL.exec(text)?.[1];
   const id = fromUrl ?? text;
+  return isEmoteId(id) ? id : null;
+}
+
+/** A pasted 7TV emote link or image link, or a bare emote ID. Anything else is not an emote reference. */
+export function parseEmoteRef(input: string): string | null {
+  const text = input.trim();
+  const id = EMOTE_URL.exec(text)?.[1] ?? text;
   return isEmoteId(id) ? id : null;
 }
 

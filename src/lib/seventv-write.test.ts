@@ -106,6 +106,25 @@ describe('createWriter', () => {
     expect(waits).toEqual([1000, 1000, 2000, 4000, 8000]);
   });
 
+  it.each(['Weißwurst', 'Grüße', 'Käse', 'Öl', 'café'])('sends a refused %s again on its own, since 7TV takes it the next time', async (alias) => {
+    let requests = 0;
+    const fetchFn = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const first = requests++ === 0;
+      return answers(body(init).length, (i) =>
+        first && body(init)[i].query.includes(alias) ? 'failed string' : undefined,
+      );
+    });
+    const results = await createWriter('tok', { fetchFn, ...fast }).addEmotes('S', [
+      { emoteId: 'A', alias: 'a' },
+      { emoteId: 'B', alias },
+    ]);
+    expect(results).toEqual([{ ok: true }, { ok: true }]);
+    expect(fetchFn.mock.calls.map(([url, init]) => [String(url), body(init as RequestInit).length])).toEqual([
+      ['https://7tv.io/v4/gql', 2],
+      ['https://7tv.io/v4/gql', 1],
+    ]);
+  });
+
   it('does not retry a refusal', async () => {
     const fetchFn = vi.fn(async () => answers(1, () => 'Emote already enabled'));
     const error = await createWriter('tok', { fetchFn, ...fast }).addEmote('S', 'E', 'a').catch((e) => e);
