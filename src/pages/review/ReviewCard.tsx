@@ -13,9 +13,9 @@ interface ReviewCardProps {
 
 const channels = (n: number) => `${n} ${n === 1 ? 'channel' : 'channels'}`;
 
-/** One pairing enough channels made: the two emotes side by side, and the call to make. */
+/** The only option for an emote with no mapping yet: the two emotes side by side, and the call to make. */
 export function ReviewCard({ candidate, onAccept, onReject, busy }: ReviewCardProps) {
-  const { alias, originalId, replacementId, current } = candidate;
+  const { alias, originalId, replacementId } = candidate;
   return (
     <li className={styles.card}>
       <div className={styles.pair}>
@@ -26,15 +26,9 @@ export function ReviewCard({ candidate, onAccept, onReject, busy }: ReviewCardPr
       <p className={styles.line}>
         {alias} → {alias} · seen in {channels(candidate.channels)}
       </p>
-      {current && (
-        <div className={styles.current}>
-          <span className={styles.currentLabel}>Now mapped to</span>
-          <Keycap emoteId={current} alt={`${alias}, current seasonal`} tone="putty" />
-        </div>
-      )}
       <div className={styles.actions}>
         <GunmetalKey size="small" onClick={onAccept} busy={busy}>
-          {current ? 'Replace existing' : 'Accept'}
+          Accept
         </GunmetalKey>
         <GunmetalKey size="small" onClick={onReject} busy={busy}>
           Reject

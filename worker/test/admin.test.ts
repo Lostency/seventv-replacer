@@ -18,7 +18,7 @@ const review = async (cookie = admin) => (await send('GET', '/api/admin/review/h
 /** Two channels showing O1 → R1 in Halloween: one card in the queue. */
 async function twoChannelsSaw(o = 'O1', r = 'R1') {
   for (const channel of ['C1', 'C2']) {
-    const id = `CMP-${channel}-${o}`;
+    const id = `CMP-${channel}-${o}-${r}`;
     await db.batch([
       db
         .prepare(
@@ -101,6 +101,46 @@ describe('admin API', () => {
 
     expect((await send('DELETE', '/api/admin/rejections/halloween/O1/R1', admin)).status).toBe(204);
     expect((await review()).candidates).toMatchObject([{ originalId: 'O1', replacementId: 'R1' }]);
+  });
+
+  it('a decision maps the kept option and rejects the rest in one go', async () => {
+    await db.prepare("INSERT INTO mappings (id, season, original_id, replacement_id, source) VALUES ('M-O1', 'halloween', 'O1', 'RX', 'seed')").run();
+    await twoChannelsSaw('O1', 'R1');
+    await twoChannelsSaw('O1', 'R2');
+    const res = await send('POST', '/api/admin/decisions', admin, {
+      season: 'halloween',
+      originalId: 'O1',
+      replacementId: 'R2',
+      rejectIds: ['R1', 'RX'],
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json<MappingWritten>()).previous).toMatchObject({ replacementId: 'RX', source: 'seed' });
+    expect((await review()).candidates).toEqual([]);
+    const { mappings } = await (await send('GET', '/api/admin/mappings/halloween', admin)).json<AdminMappingsResponse>();
+    expect(mappings.find((m) => m.originalId === 'O1')).toMatchObject({ replacementId: 'R2', source: 'review' });
+    const { results } = await db.prepare("SELECT replacement_id FROM rejections WHERE original_id = 'O1' ORDER BY 1").all();
+    expect(results).toEqual([{ replacement_id: 'R1' }, { replacement_id: 'RX' }]);
+  });
+
+  it('a decision without a replacement keeps the current mapping', async () => {
+    await db.prepare("INSERT INTO mappings (id, season, original_id, replacement_id, source) VALUES ('M-O1', 'halloween', 'O1', 'RX', 'seed')").run();
+    await twoChannelsSaw('O1', 'R1');
+    const res = await send('POST', '/api/admin/decisions', admin, { season: 'halloween', originalId: 'O1', replacementId: null, rejectIds: ['R1'] });
+    expect(await res.json<MappingWritten>()).toEqual({ previous: null });
+    expect((await review()).candidates).toEqual([]);
+    const { mappings } = await (await send('GET', '/api/admin/mappings/halloween', admin)).json<AdminMappingsResponse>();
+    expect(mappings.find((m) => m.originalId === 'O1')).toMatchObject({ replacementId: 'RX', source: 'seed' });
+  });
+
+  it('refuses a decision that keeps and rejects the same emote, or decides nothing', async () => {
+    const bad = [
+      { season: 'halloween', originalId: 'O1', replacementId: 'R1', rejectIds: ['R1'] },
+      { season: 'halloween', originalId: 'O1', replacementId: 'O1', rejectIds: [] },
+      { season: 'halloween', originalId: 'O1', replacementId: null, rejectIds: [] },
+    ];
+    for (const body of bad) {
+      expect((await send('POST', '/api/admin/decisions', admin, body)).status).toBe(400);
+    }
   });
 
   it('deletes a mapping and returns it', async () => {

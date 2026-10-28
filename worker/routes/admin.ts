@@ -19,6 +19,16 @@ const emoteId = z.string().min(1).max(40);
 const pairing = z.object({ season: z.enum(SEASONS), originalId: emoteId, replacementId: emoteId });
 const mappingBody = pairing.extend({ source: z.enum(['seed', 'review', 'manual']) });
 const thresholdBody = z.object({ threshold: z.number().int().min(1).max(50) });
+const decisionBody = z
+  .object({
+    season: z.enum(SEASONS),
+    originalId: emoteId,
+    replacementId: emoteId.nullable(),
+    rejectIds: z.array(emoteId).max(50),
+  })
+  .refine(({ replacementId, rejectIds }) => replacementId !== null || rejectIds.length > 0)
+  .refine(({ originalId, replacementId }) => replacementId !== originalId)
+  .refine(({ replacementId, rejectIds }) => replacementId === null || !rejectIds.includes(replacementId));
 
 export const admin = new Hono<AppEnv>();
 
@@ -67,6 +77,39 @@ admin.put('/mappings', async (c) => {
       .bind(crypto.randomUUID(), season, originalId, replacementId, source),
   ]);
   const body: MappingWritten = { previous: before?.results[0] ?? null };
+  return c.json(body, 200, NO_STORE);
+});
+
+/**
+ * Settles every option for one emote at once: maps `replacementId` (null keeps the current mapping)
+ * and rejects `rejectIds`, all or nothing. Answers with the mapping it replaced, so Undo can put it back.
+ */
+admin.post('/decisions', async (c) => {
+  const parsed = decisionBody.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json<ApiError>({ error: 'Pick one option to keep, then try again.' }, 400);
+  const { season, originalId, replacementId, rejectIds } = parsed.data;
+
+  const db = c.env.DB;
+  const rejectedBy = c.get('user').twitchId;
+  const [before] = await db.batch<AdminMapping>([
+    db.prepare(`SELECT ${MAPPING_COLUMNS} FROM mappings WHERE season = ? AND original_id = ?`).bind(season, originalId),
+    ...(replacementId === null
+      ? []
+      : [
+          db
+            .prepare(
+              `INSERT INTO mappings (id, season, original_id, replacement_id, source) VALUES (?, ?, ?, ?, 'review')
+               ON CONFLICT (season, original_id) DO UPDATE SET replacement_id = excluded.replacement_id, source = excluded.source`,
+            )
+            .bind(crypto.randomUUID(), season, originalId, replacementId),
+        ]),
+    ...rejectIds.map((id) =>
+      db
+        .prepare('INSERT OR IGNORE INTO rejections (season, original_id, replacement_id, rejected_by) VALUES (?, ?, ?, ?)')
+        .bind(season, originalId, id, rejectedBy),
+    ),
+  ]);
+  const body: MappingWritten = { previous: replacementId === null ? null : (before?.results[0] ?? null) };
   return c.json(body, 200, NO_STORE);
 });
 

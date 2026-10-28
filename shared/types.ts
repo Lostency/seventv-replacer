@@ -118,6 +118,14 @@ export interface RejectionRequest {
   replacementId: string;
 }
 
+/** Settles every option for one emote: maps `replacementId` (null keeps the current mapping), rejects `rejectIds`. */
+export interface DecisionRequest {
+  season: SeasonId;
+  originalId: string;
+  replacementId: string | null;
+  rejectIds: string[];
+}
+
 export interface ApiError {
   error: string;
   cooldown?: Cooldown;

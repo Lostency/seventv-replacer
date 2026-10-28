@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AdminMapping, Candidate } from '@shared/types';
@@ -21,7 +21,7 @@ type Call = { method: string; url: string; body?: unknown };
 /** An admin's server: the queue answers `queue()` each time, writes are recorded. */
 function adminServer(
   queue: () => Candidate[],
-  answers: { mapping?: unknown; mappings?: () => AdminMapping[]; deleted?: AdminMapping } = {},
+  answers: { mapping?: unknown; decision?: unknown; mappings?: () => AdminMapping[]; deleted?: AdminMapping } = {},
 ) {
   const calls: Call[] = [];
   const record = (url: string, init?: RequestInit) => {
@@ -48,6 +48,10 @@ function adminServer(
     '/api/admin/rejections': (url, init) => {
       const method = record(url, init);
       return method === 'DELETE' ? new Response(null, { status: 204 }) : json({}, 201);
+    },
+    '/api/admin/decisions': (url, init) => {
+      record(url, init);
+      return json(answers.decision ?? { previous: null });
     },
     '/api/admin/threshold': (url, init) => {
       record(url, init);
@@ -103,17 +107,74 @@ describe('Review', () => {
     expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/mappings/halloween/O1', body: undefined });
   });
 
-  it('offers Replace existing, and Undo puts the old mapping back', async () => {
-    const previous = { originalId: 'O1', replacementId: 'RX', source: 'seed', createdAt: '2026-10-27 12:00:00' };
-    const calls = adminServer(() => [candidate({ current: 'RX' })], { mapping: { previous } });
+  it('puts the current mapping and every option for one emote in one card', async () => {
+    adminServer(() => [
+      candidate({ current: 'RX' }),
+      candidate({ replacementId: 'R2', channels: 2, current: 'RX' }),
+      candidate({ originalId: 'O2', replacementId: 'R3', alias: 'Sadge' }),
+    ]);
     renderAt('/review');
-    expect(await screen.findByText('Now mapped to')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Replace existing' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
-    expect(calls.at(-1)).toEqual({
-      method: 'PUT',
-      url: '/api/admin/mappings',
-      body: { season: 'halloween', originalId: 'O1', replacementId: 'RX', source: 'seed' },
+    const card = (await screen.findByText('peepoHappy · 2 options')).closest('li')!;
+    expect(within(card).getByText('Current')).toBeInTheDocument();
+    expect(within(card).getByText('Seen in 3 channels')).toBeInTheDocument();
+    expect(within(card).getByText('Seen in 2 channels')).toBeInTheDocument();
+    expect(within(card).getAllByRole('button', { name: /^Keep/ })).toHaveLength(3);
+    expect(within(card).queryByRole('button', { name: 'Reject all' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Accept' })).toHaveLength(1);
+  });
+
+  it('keeps one option, rejects the rest and the old mapping, and Undo restores all of it', async () => {
+    const previous = { originalId: 'O1', replacementId: 'RX', source: 'seed', createdAt: '2026-10-27 12:00:00' };
+    const calls = adminServer(
+      () => [candidate({ current: 'RX' }), candidate({ replacementId: 'R2', channels: 2, current: 'RX' })],
+      { decision: { previous } },
+    );
+    renderAt('/review');
+    await userEvent.click(await screen.findByRole('button', { name: 'Keep option 2' }));
+    expect(await screen.findByText('Kept a new peepoHappy.')).toBeInTheDocument();
+    expect(calls).toContainEqual({
+      method: 'POST',
+      url: '/api/admin/decisions',
+      body: { season: 'halloween', originalId: 'O1', replacementId: 'R2', rejectIds: ['R1', 'RX'] },
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: 'PUT',
+        url: '/api/admin/mappings',
+        body: { season: 'halloween', originalId: 'O1', replacementId: 'RX', source: 'seed' },
+      }),
+    );
+    expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/rejections/halloween/O1/R1', body: undefined });
+    expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/rejections/halloween/O1/RX', body: undefined });
+  });
+
+  it('keeping the current mapping rejects every option', async () => {
+    const calls = adminServer(() => [candidate({ current: 'RX' })]);
+    renderAt('/review');
+    await userEvent.click(await screen.findByRole('button', { name: 'Keep current' }));
+    expect(await screen.findByText('Kept the current peepoHappy.')).toBeInTheDocument();
+    expect(calls).toContainEqual({
+      method: 'POST',
+      url: '/api/admin/decisions',
+      body: { season: 'halloween', originalId: 'O1', replacementId: null, rejectIds: ['R1'] },
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/rejections/halloween/O1/R1', body: undefined }),
+    );
+    expect(calls.filter((c) => c.url.startsWith('/api/admin/mappings'))).toEqual([]);
+  });
+
+  it('rejects every option at once when nothing is mapped yet', async () => {
+    const calls = adminServer(() => [candidate(), candidate({ replacementId: 'R2', channels: 2 })]);
+    renderAt('/review');
+    await userEvent.click(await screen.findByRole('button', { name: 'Reject all' }));
+    expect(await screen.findByText('Rejected every peepoHappy option.')).toBeInTheDocument();
+    expect(calls).toContainEqual({
+      method: 'POST',
+      url: '/api/admin/decisions',
+      body: { season: 'halloween', originalId: 'O1', replacementId: null, rejectIds: ['R1', 'R2'] },
     });
   });
 

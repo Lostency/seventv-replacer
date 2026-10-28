@@ -7,6 +7,7 @@ import type {
   ComparisonSubmitted,
   Cooldown,
   AdminMappingsResponse,
+  DecisionRequest,
   MappingDeleted,
   MappingWrite,
   MappingWritten,
@@ -90,6 +91,9 @@ export const deleteMapping = (season: SeasonId, originalId: string) =>
 
 export const rejectPairing = ({ season, originalId, replacementId }: RejectionRequest) =>
   sendJson<unknown>('POST', '/api/admin/rejections', { season, originalId, replacementId });
+
+export const decide = ({ season, originalId, replacementId, rejectIds }: DecisionRequest) =>
+  sendJson<MappingWritten>('POST', '/api/admin/decisions', { season, originalId, replacementId, rejectIds });
 
 /** Only the Undo toast lifts a rejection. */
 export const unrejectPairing = ({ season, originalId, replacementId }: RejectionRequest) =>
