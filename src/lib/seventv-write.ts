@@ -81,6 +81,10 @@ function classify(status: number, message: string, code?: number): WriteErrorKin
   return 'refused';
 }
 
+/** 7TV sometimes refuses a name with ß, umlauts or accents, then takes the same name when it's sent again. */
+const BEYOND_ASCII = /[^\x20-\x7E]/;
+const BEYOND_ASCII_TRIES = 2;
+
 /** v4 answering like this means it can't run our mutation at all, not that 7TV refused the emote. */
 const SCHEMA_PROBLEM = /unknown (field|argument|type)|cannot query field|is not defined|syntax error|parse error/i;
 
@@ -179,6 +183,24 @@ export function createWriter(
     });
   };
 
+  /**
+   * A refused ß, umlaut or accented name, sent again by itself on v4 (v3 has mangled umlauts before).
+   * Keeps the first refusal if 7TV still says no, or the request can't go through at all.
+   */
+  const alone = async (field: 'addEmote' | 'removeEmote', setId: string, emote: EmoteRef, refusal: ItemResult) => {
+    let result = refusal;
+    for (let attempt = 0; attempt < BEYOND_ASCII_TRIES && !result.ok && result.error.kind === 'refused'; attempt++) {
+      await wait((options.baseDelayMs ?? 1000) * 2 ** attempt);
+      try {
+        result = (await withRetry(() => batch(field, setId, [emote]), options))[0] ?? refusal;
+      } catch (error) {
+        if (error instanceof WriteError && error.kind === 'auth') throw error;
+        return refusal;
+      }
+    }
+    return result;
+  };
+
   /** The tested v3 path: one emote per request, paced. */
   const oneByOne = async (action: 'ADD' | 'REMOVE', setId: string, emotes: EmoteRef[]): Promise<ItemResult[]> => {
     const results: ItemResult[] = [];
@@ -206,9 +228,12 @@ export function createWriter(
           const answers = await withRetry(() => batch(field, setId, chunk), options);
           // Emotes 7TV turned away for going too fast, or couldn't save alongside the rest, get paced tries of their own.
           for (const [i, answer] of answers.entries()) {
-            if (!answer.ok && isTransient(answer.error)) {
+            if (answer.ok) continue;
+            if (isTransient(answer.error)) {
               await wait(options.baseDelayMs ?? 1000);
               answers[i] = (await oneByOne(action, setId, [chunk[i]!]))[0]!;
+            } else if (BEYOND_ASCII.test(chunk[i]!.alias)) {
+              answers[i] = await alone(field, setId, chunk[i]!, answer);
             }
           }
           results.push(...answers);
