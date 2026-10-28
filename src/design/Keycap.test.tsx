@@ -24,3 +24,26 @@ describe('Keycap', () => {
     expect(screen.getByAltText('b')).toHaveAttribute('src', `/emote-images/${'B'.repeat(26)}.webp`);
   });
 });
+
+describe('Keycap links', () => {
+  it('opens the emote’s 7TV page in a new tab', () => {
+    render(<Keycap emoteId={ID} alt="peepoHappy" />);
+    const link = screen.getByRole('link', { name: 'peepoHappy on 7TV' });
+    expect(link).toHaveAttribute('href', `https://7tv.app/emotes/${ID}`);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('keeps a decorative cap out of the tab order', () => {
+    render(<Keycap emoteId={ID} alt="" />);
+    const link = document.querySelector('a');
+    expect(link).toHaveAttribute('href', `https://7tv.app/emotes/${ID}`);
+    expect(link).toHaveAttribute('tabindex', '-1');
+    expect(link).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('is no link while blank', () => {
+    render(<Keycap alt="" />);
+    expect(document.querySelector('a')).toBeNull();
+  });
+});
