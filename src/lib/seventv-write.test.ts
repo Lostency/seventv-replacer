@@ -33,13 +33,21 @@ describe('createWriter', () => {
   });
 
   it('sends 30 changes per request and reports each one', async () => {
-    const fetchFn = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
-      answers(body(init).length, (i) => (i === 1 ? 'Emote already in set' : undefined)),
+    const refused = new Response(JSON.stringify({ errors: [{ message: 'Emote already in set' }] }));
+    const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) =>
+      String(url).endsWith('/v4/gql')
+        ? answers(body(init).length, (i) => (body(init)[i].query.includes('"E1"') ? 'Emote already in set' : undefined))
+        : refused.clone(),
     );
     const emotes = Array.from({ length: 31 }, (_, i) => ({ emoteId: `E${i}`, alias: `e${i}` }));
     const results = await createWriter('tok', { fetchFn, ...fast }).addEmotes('S', emotes);
-    expect(fetchFn).toHaveBeenCalledTimes(2);
-    expect(body(fetchFn.mock.calls[0]![1])).toHaveLength(30);
+    // Two batches, plus the refused emote sent again on its own over v4 and over v3.
+    expect(fetchFn.mock.calls.map(([url, init]) => [String(url).slice(-6), Array.isArray(body(init as RequestInit)) ? body(init as RequestInit).length : 1])).toEqual([
+      ['v4/gql', 30],
+      ['v4/gql', 1],
+      ['v3/gql', 1],
+      ['v4/gql', 1],
+    ]);
     expect(results).toHaveLength(31);
     expect(results[1]).toMatchObject({ ok: false, error: { kind: 'refused', message: 'Emote already in set' } });
     expect(results.filter((r) => r.ok)).toHaveLength(30);
@@ -125,11 +133,34 @@ describe('createWriter', () => {
     ]);
   });
 
-  it('does not retry a refusal', async () => {
-    const fetchFn = vi.fn(async () => answers(1, () => 'Emote already enabled'));
+  it('tries a refused name once more on v4 and once on v3 before calling it refused', async () => {
+    const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) =>
+      String(url).endsWith('/v4/gql')
+        ? answers(body(init).length, () => 'Emote already enabled')
+        : new Response(JSON.stringify({ errors: [{ message: 'Emote already enabled' }] })),
+    );
     const error = await createWriter('tok', { fetchFn, ...fast }).addEmote('S', 'E', 'a').catch((e) => e);
     expect(error).toBeInstanceOf(WriteError);
     expect(error).toMatchObject({ kind: 'refused', message: 'Emote already enabled' });
+    expect(fetchFn.mock.calls.map(([url]) => String(url))).toEqual([
+      'https://7tv.io/v4/gql',
+      'https://7tv.io/v4/gql',
+      'https://7tv.io/v3/gql',
+    ]);
+    expect(body(fetchFn.mock.calls[2]![1] as RequestInit).variables).toEqual({ id: 'S', action: 'ADD', emote_id: 'E', name: 'a' });
+  });
+
+  it('takes a name v3 accepts after v4 refused it', async () => {
+    const fetchFn = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) =>
+      String(url).endsWith('/v4/gql') ? answers(body(init).length, () => 'failed string') : ok(),
+    );
+    await expect(createWriter('tok', { fetchFn, ...fast }).addEmote('S', 'E', 'Grüße')).resolves.toBeUndefined();
+    expect(fetchFn.mock.calls.map(([url]) => String(url)).at(-1)).toBe('https://7tv.io/v3/gql');
+  });
+
+  it('doesn’t send a refused removal again', async () => {
+    const fetchFn = vi.fn(async () => answers(1, () => 'Emote not in set'));
+    await expect(createWriter('tok', { fetchFn, ...fast }).removeEmote('S', 'E', 'a')).rejects.toMatchObject({ kind: 'refused' });
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
