@@ -65,6 +65,18 @@ export interface ComparisonSubmitted {
   cooldown: Cooldown;
 }
 
+/** A pairing enough channels made by hand, waiting for an admin. */
+export interface Candidate {
+  originalId: string;
+  replacementId: string;
+  /** The alias the channels use; both sides share it. */
+  alias: string;
+  /** Distinct channels whose comparisons show this pairing. */
+  channels: number;
+  /** The original's current mapping in this season, when it points to another emote. */
+  current: string | null;
+}
+
 export interface ApiError {
   error: string;
   cooldown?: Cooldown;
