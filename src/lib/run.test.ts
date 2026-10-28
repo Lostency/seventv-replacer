@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { EmoteSet } from '@shared/seventv';
 import { fakeSevenTv } from '../test/fake-seventv';
-import { executeRun, planSwaps, RunNotStarted } from './run';
+import { executeRun, planSwaps, RunNotStarted, type RunProblem } from './run';
 import { WriteError } from './seventv-write';
 import { undoRun } from './undo';
 
@@ -10,7 +10,7 @@ const MAPPINGS = [
   { originalId: 'B', replacementId: 'B2' },
   { originalId: 'C', replacementId: 'C2' },
 ];
-const quick = { pauseMs: 0, sleep: async () => {} };
+const quick = { pauseMs: 0, sleep: async () => {}, checkEmote: async () => 'unknown' as const };
 
 function source(emotes: Array<[string, string]>): EmoteSet {
   return { id: 'S', name: 'Main', owner: { id: 'U1', name: 'niena' }, capacity: 1000, emotes: emotes.map(([alias, id]) => ({ alias, id })) };
@@ -72,66 +72,125 @@ describe('replace in place, then undo', () => {
   it('keeps umlauts and accents exactly as they are', async () => {
     const set = source([['üäöéèà', 'A']]);
     const tv = fakeSevenTv({ S: [{ id: 'A', alias: 'üäöéèà' }] });
-    const askAlias = vi.fn();
-    const report = await executeRun(
+    const onProblem = vi.fn();
+    await executeRun(
       { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
       tv.writer,
-      { ...quick, askAlias },
+      { ...quick, onProblem },
     );
-    expect(askAlias).not.toHaveBeenCalled();
-    expect(report.renamed).toEqual([]);
+    expect(onProblem).not.toHaveBeenCalled();
     expect(tv.store.get('S')).toEqual([{ id: 'A2', alias: 'üäöéèà' }]);
   });
 
-  it('asks for a new name when 7TV refuses one, and reports the rename', async () => {
-    const set = source([['a,b', 'A']]);
-    const tv = fakeSevenTv({ S: [{ id: 'A', alias: 'a,b' }] });
-    const askAlias = vi.fn(async () => 'a_b');
+  it('sets a refused name aside with the normal emote in its place, and carries on', async () => {
+    const set = source([['a,b', 'A'], ['b', 'B']]);
+    const tv = fakeSevenTv({ S: set.emotes });
+    // The normal emote goes back under its old name: here 7TV only refuses the seasonal one.
+    const add = tv.writer.addEmote;
+    tv.writer.addEmote = async (setId, id, alias) => {
+      if (id === 'A') tv.store.get(setId)!.push({ id, alias });
+      else await add(setId, id, alias);
+    };
+    const problems: RunProblem[] = [];
     const report = await executeRun(
       { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
       tv.writer,
-      { ...quick, askAlias },
+      { ...quick, onProblem: (p) => problems.push(p) },
     );
-    expect(askAlias).toHaveBeenCalledWith({
-      alias: 'a,b',
-      emoteId: 'A2',
-      reason: 'Invalid emote name',
-      suggestion: 'ab',
-      role: 'seasonal',
-    });
-    expect(report.renamed).toEqual([{ from: 'a,b', to: 'a_b' }]);
-    expect(tv.store.get('S')).toEqual([{ id: 'A2', alias: 'a_b' }]);
+    expect(problems).toEqual([
+      {
+        id: expect.any(String),
+        runId: report.record.id,
+        kind: 'refused',
+        mode: 'in-place',
+        season: 'halloween',
+        setId: 'S',
+        setName: 'Main',
+        alias: 'a,b',
+        emoteId: 'A2',
+        normalId: 'A',
+        pairing: { originalId: 'A', replacementId: 'A2' },
+        reason: 'Invalid emote name',
+        at: expect.any(String),
+      },
+    ]);
+    expect(report.swapped).toBe(1);
+    expect(tv.store.get('S')).toEqual(expect.arrayContaining([{ id: 'A', alias: 'a,b' }, { id: 'B2', alias: 'b' }]));
   });
 
-  it('doesn’t ask for a new name when 7TV only failed to save', async () => {
+  it('calls a seasonal emote broken when 7TV no longer has it', async () => {
+    const set = source([['b', 'B']]);
+    const tv = fakeSevenTv({ S: set.emotes }, ['B2']);
+    const checkEmote = vi.fn(async (id: string) => (id === 'B2' ? ('broken' as const) : ('ok' as const)));
+    const onProblem = vi.fn();
+    await executeRun(
+      { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
+      tv.writer,
+      { ...quick, checkEmote, onProblem },
+    );
+    expect(checkEmote).toHaveBeenCalledWith('B2');
+    expect(onProblem).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'broken', emoteId: 'B2', normalId: 'B', reason: 'Emote is private' }),
+    );
+    expect(tv.store.get('S')).toEqual([{ id: 'B', alias: 'b' }]);
+  });
+
+  it('turns the pairing round for a revert', async () => {
+    const set = source([['b', 'B2']]);
+    const tv = fakeSevenTv({ S: set.emotes }, ['B']);
+    const onProblem = vi.fn();
+    await executeRun(
+      { mode: 'revert', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'revert').swaps },
+      tv.writer,
+      { ...quick, onProblem },
+    );
+    expect(onProblem).toHaveBeenCalledWith(
+      expect.objectContaining({ emoteId: 'B', normalId: 'B2', pairing: { originalId: 'B', replacementId: 'B2' } }),
+    );
+  });
+
+  it('keeps a save 7TV couldn’t make as a problem to retry', async () => {
     const set = source([['a', 'A']]);
     const tv = fakeSevenTv({ S: set.emotes });
     const unsaved = new WriteError('TRANSACTION_ERROR transaction failed', 'conflict');
     tv.writer.addEmotes = async (_set, emotes) => emotes.map(() => ({ ok: false, error: unsaved }));
-    const askAlias = vi.fn();
+    const onProblem = vi.fn();
     const report = await executeRun(
       { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
       tv.writer,
-      { ...quick, askAlias },
+      { ...quick, onProblem },
     );
-    expect(askAlias).not.toHaveBeenCalled();
+    expect(onProblem).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'refused', reason: 'TRANSACTION_ERROR transaction failed' }),
+    );
     expect(report.failed).toEqual([{ alias: 'a', reason: 'TRANSACTION_ERROR transaction failed' }]);
     expect(tv.store.get('S')).toEqual([{ id: 'A', alias: 'a' }]);
   });
 
-  it('asks again for the original when the user skips the seasonal one', async () => {
+  it('says the emote is missing when the normal one won’t go back either', async () => {
     const set = source([['a,b', 'A']]);
     const tv = fakeSevenTv({ S: [{ id: 'A', alias: 'a,b' }] });
-    const askAlias = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce('ab');
+    const onProblem = vi.fn();
     const report = await executeRun(
       { mode: 'in-place', season: 'halloween', source: set, swaps: planSwaps(set, MAPPINGS, 'in-place').swaps },
       tv.writer,
-      { ...quick, askAlias },
+      { ...quick, onProblem },
     );
-    expect(askAlias.mock.calls[1]![0]).toMatchObject({ emoteId: 'A', role: 'normal' });
-    expect(report.failed).toHaveLength(1);
-    expect(report.lost).toEqual([]);
-    expect(tv.store.get('S')).toEqual([{ id: 'A', alias: 'ab' }]);
+    expect(onProblem).toHaveBeenCalledTimes(1);
+    expect(onProblem).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'missing', emoteId: 'A2', normalId: 'A', alias: 'a,b' }),
+    );
+    expect(report.lost).toEqual(['a,b']);
+    expect(tv.store.get('S')).toEqual([]);
+  });
+
+  it('gives queued fixes their turn after every batch', async () => {
+    const set = source(Array.from({ length: 31 }, (_, i): [string, string] => [`e${i}`, `E${i}`]));
+    const tv = fakeSevenTv({ S: set.emotes });
+    const swaps = set.emotes.map((e) => ({ alias: e.alias, fromId: e.id, toId: `${e.id}x` }));
+    const between = vi.fn(async () => {});
+    await executeRun({ mode: 'in-place', season: 'halloween', source: set, swaps }, tv.writer, { ...quick, between });
+    expect(between).toHaveBeenCalledTimes(2);
   });
 
   it('saves the record after every batch, so a closed tab can still be undone', async () => {
@@ -212,6 +271,16 @@ describe('duplicate + replace', () => {
     );
     expect(tv.store.get('NEW1')).toEqual([{ id: 'A', alias: 'a' }]);
     expect(report.failed).toHaveLength(1);
+  });
+
+  it('sets aside an unchanged emote 7TV won’t copy as missing', async () => {
+    const set = source([['x,y', 'X']]);
+    const tv = fakeSevenTv({ S: set.emotes });
+    const onProblem = vi.fn();
+    await executeRun({ mode: 'duplicate', season: 'halloween', source: set, swaps: [] }, tv.writer, { ...quick, onProblem });
+    expect(onProblem).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'missing', setId: 'NEW1', emoteId: 'X', normalId: null, pairing: null }),
+    );
   });
 
   it('explains what to do when 7TV will not create a set', async () => {

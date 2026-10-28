@@ -7,6 +7,10 @@ import type {
   ComparisonSubmitted,
   Cooldown,
   AdminMappingsResponse,
+  BrokenEmote,
+  BrokenListResponse,
+  BrokenReport,
+  DecisionRequest,
   MappingDeleted,
   MappingWrite,
   MappingWritten,
@@ -91,6 +95,23 @@ export const deleteMapping = (season: SeasonId, originalId: string) =>
 export const rejectPairing = ({ season, originalId, replacementId }: RejectionRequest) =>
   sendJson<unknown>('POST', '/api/admin/rejections', { season, originalId, replacementId });
 
+export const decide = ({ season, originalId, replacementId, rejectIds }: DecisionRequest) =>
+  sendJson<MappingWritten>('POST', '/api/admin/decisions', { season, originalId, replacementId, rejectIds });
+
 /** Only the Undo toast lifts a rejection. */
 export const unrejectPairing = ({ season, originalId, replacementId }: RejectionRequest) =>
   sendJson<void>('DELETE', `/api/admin/rejections/${season}/${encodeURIComponent(originalId)}/${encodeURIComponent(replacementId)}`);
+
+/** A run found a preset emote gone or unusable on 7TV. Nothing for the user to wait on or retry. */
+export const reportBroken = (report: BrokenReport) => sendJson<null>('POST', '/api/broken-emotes', report);
+
+export const fetchBroken = (season: SeasonId) => sendJson<BrokenListResponse>('GET', `/api/admin/broken/${season}`);
+
+export const dismissBroken = (season: SeasonId, { originalId, replacementId }: BrokenEmote) =>
+  sendJson<{ dismissed: BrokenEmote | null }>(
+    'DELETE',
+    `/api/admin/broken/${season}/${encodeURIComponent(originalId)}/${encodeURIComponent(replacementId)}`,
+  );
+
+/** Only the Undo toast puts a dismissed report back. */
+export const restoreBroken = (season: SeasonId, row: BrokenEmote) => sendJson<unknown>('PUT', '/api/admin/broken', { season, ...row });

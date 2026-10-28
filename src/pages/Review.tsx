@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { currentSeason, SEASONS, seasonLabel, type SeasonId } from '@shared/seasons';
-import type { AdminMapping, Candidate, MappingWritten, MeResponse, ReviewResponse } from '@shared/types';
+import type { AdminMapping, BrokenEmote, Candidate, MappingWritten, MeResponse, ReviewResponse } from '@shared/types';
 import {
+  decide as sendDecision,
   deleteMapping,
   fetchMe,
   fetchReview,
   rejectPairing,
+  restoreBroken,
   saveThreshold,
   signInUrl,
   unrejectPairing,
@@ -19,6 +21,8 @@ import { SiteFooter } from '../design/SiteFooter';
 import { SiteHeader } from '../design/SiteHeader';
 import { UndoToast } from '../design/UndoToast';
 import { AddMapping } from './review/AddMapping';
+import { BrokenEmotes } from './review/BrokenEmotes';
+import { ChoiceCard } from './review/ChoiceCard';
 import { Mappings } from './review/Mappings';
 import { ReviewCard } from './review/ReviewCard';
 import styles from './Workbench.module.css';
@@ -36,6 +40,13 @@ interface Toast {
 
 const reasonOf = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 const keyOf = (c: Candidate) => `${c.originalId}>${c.replacementId}`;
+
+/** The queue by emote, in queue order: each original with every option waiting for it. */
+function byOriginal(candidates: Candidate[]): Candidate[][] {
+  const groups = new Map<string, Candidate[]>();
+  for (const c of candidates) groups.set(c.originalId, [...(groups.get(c.originalId) ?? []), c]);
+  return [...groups.values()];
+}
 
 export function Review() {
   const [me, setMe] = useState<Loaded<MeResponse>>('loading');
@@ -116,12 +127,39 @@ export function Review() {
       return { message: `Rejected ${c.alias}.`, undo: () => unrejectPairing(pairing) };
     });
 
+  /** Keeps one option for an emote and rejects the others, the replaced mapping included. */
+  const keep = (options: Candidate[], replacementId: string | null) => {
+    const { originalId, alias, current } = options[0]!;
+    const rejectIds = options.map((o) => o.replacementId).filter((id) => id !== replacementId);
+    if (replacementId && current) rejectIds.push(current);
+    return decide(originalId, async () => {
+      const { previous } = await sendDecision({ season, originalId, replacementId, rejectIds });
+      const unreject = () =>
+        Promise.all(rejectIds.map((id) => unrejectPairing({ season, originalId, replacementId: id })));
+      const unmap = () => (previous ? writeMapping({ season, ...previous }) : deleteMapping(season, originalId));
+      return {
+        message: replacementId
+          ? `Kept a new ${alias}.`
+          : current
+            ? `Kept the current ${alias}.`
+            : `Rejected every ${alias} option.`,
+        undo: () => Promise.all([unreject(), replacementId ? unmap() : null]),
+      };
+    });
+  };
+
   const added = (originalId: string, { previous }: MappingWritten) => {
     setProblem(undefined);
     setToast({
       message: previous ? 'Replaced the mapping.' : 'Added the mapping.',
       undo: () => (previous ? writeMapping({ season, ...previous }) : deleteMapping(season, originalId)),
     });
+    refresh();
+  };
+
+  const dismissed = (row: BrokenEmote) => {
+    setProblem(undefined);
+    setToast({ message: 'Dismissed the report.', undo: () => restoreBroken(season, row) });
     refresh();
   };
 
@@ -248,17 +286,45 @@ export function Review() {
               )}
               {ready && ready.candidates.length > 0 && (
                 <ul className={review.queue} aria-label="Waiting for review">
-                  {ready.candidates.map((c) => (
-                    <ReviewCard
-                      key={keyOf(c)}
-                      candidate={c}
-                      busy={busy === keyOf(c)}
-                      onAccept={() => void accept(c)}
-                      onReject={() => void reject(c)}
-                    />
-                  ))}
+                  {byOriginal(ready.candidates).map((options) => {
+                    const [c] = options as [Candidate];
+                    return options.length === 1 && !c.current ? (
+                      <ReviewCard
+                        key={keyOf(c)}
+                        candidate={c}
+                        busy={busy === keyOf(c)}
+                        onAccept={() => void accept(c)}
+                        onReject={() => void reject(c)}
+                      />
+                    ) : (
+                      <ChoiceCard
+                        key={c.originalId}
+                        options={options}
+                        busy={busy === c.originalId}
+                        onKeep={(replacementId) => void keep(options, replacementId)}
+                      />
+                    );
+                  })}
                 </ul>
               )}
+            </section>
+
+            <section className={styles.step} aria-labelledby="broken-heading">
+              <h2 id="broken-heading" className={styles.sectionHeading}>
+                Broken emotes
+              </h2>
+              <p className={styles.stepLede}>
+                Mappings whose emote Replace runs found deleted or unusable on 7TV. Runs used the normal emote instead.
+                Replace or delete the mapping, or dismiss the report if 7TV has it working again.
+              </p>
+              <BrokenEmotes
+                season={season}
+                version={version}
+                onReplaced={added}
+                onDeleted={deleted}
+                onDismissed={dismissed}
+                onProblem={setProblem}
+              />
             </section>
 
             <section className={styles.step} aria-labelledby="add-heading">

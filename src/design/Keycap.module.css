@@ -37,6 +37,36 @@
   height: 58%;
   object-fit: contain;
   image-rendering: auto;
+  transition: transform 160ms var(--ease-out);
+}
+
+/* A linked cap: the art lifts off the cap at twice its size, so small emotes can be told apart. */
+a.key {
+  color: inherit;
+  text-decoration: none;
+  cursor: zoom-in;
+}
+
+a.key:hover,
+a.key:focus-visible {
+  z-index: 2;
+}
+
+a.key:hover .art,
+a.key:focus-visible .art {
+  transform: scale(2);
+  filter: drop-shadow(0 4px 6px rgb(0 0 0 / 0.35));
+}
+
+a.key:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art {
+    transition: none;
+  }
 }
 
 /* No seasonal version: a dashed rim, never a hue change, and the art steps back. */

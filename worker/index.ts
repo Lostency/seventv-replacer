@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { admin } from './routes/admin';
 import { auth, me } from './routes/auth';
+import { broken } from './routes/broken';
 import { comparisons } from './routes/comparisons';
 import { presets } from './routes/presets';
 import { stats } from './routes/stats';
@@ -14,6 +15,7 @@ app.route('/stats', stats);
 app.route('/auth', auth);
 app.route('/me', me);
 app.route('/comparisons', comparisons);
+app.route('/broken-emotes', broken);
 app.route('/admin', admin);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));

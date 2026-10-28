@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchChannelSets, fetchEmoteSet, parseChannel, parseEmoteRef, parseSetRef, SevenTvError } from './seventv';
+import { checkEmote, fetchChannelSets, fetchEmoteSet, parseChannel, parseEmoteRef, parseSetRef, SevenTvError } from './seventv';
 
 const SET = '01HXYZ0000000000000000ABCD';
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -130,4 +130,29 @@ describe('parseEmoteRef', () => {
     ['https://7tv.app/emote-sets/01F6MDFCSR0000WDA7ERT623YT', null],
     ['peepoHappy', null],
   ])('%s → %s', (input, id) => expect(parseEmoteRef(input)).toBe(id));
+});
+
+describe('checkEmote', () => {
+  const answer = (body: unknown, status = 200) => vi.fn(async () => json(body, status));
+
+  it('asks 7TV for the emote', async () => {
+    const fetchFn = answer({ id: SET, lifecycle: 3, flags: 0 });
+    expect(await checkEmote(SET, fetchFn)).toBe('ok');
+    expect(fetchFn).toHaveBeenCalledWith(`https://7tv.io/v3/emotes/${SET}`, undefined);
+  });
+
+  it('calls a deleted emote broken', async () => {
+    expect(await checkEmote(SET, answer({ error: 'emote not found' }, 404))).toBe('broken');
+    expect(await checkEmote(SET, answer({ id: SET, lifecycle: -1, flags: 0 }))).toBe('broken');
+  });
+
+  it('calls a private or unfinished emote broken', async () => {
+    expect(await checkEmote(SET, answer({ id: SET, lifecycle: 3, flags: 1 }))).toBe('broken');
+    expect(await checkEmote(SET, answer({ id: SET, lifecycle: 1, flags: 0 }))).toBe('broken');
+  });
+
+  it('doesn’t know when 7TV can’t be asked', async () => {
+    expect(await checkEmote(SET, answer({}, 503))).toBe('unknown');
+    expect(await checkEmote(SET, vi.fn(async () => Promise.reject(new TypeError('offline'))))).toBe('unknown');
+  });
 });

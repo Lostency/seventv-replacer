@@ -10,10 +10,12 @@ interface GunmetalKeyProps {
   busy?: boolean;
   size?: 'regular' | 'small';
   className?: string;
+  /** Accessible name when the visible text alone is ambiguous, e.g. several "Keep" keys on one card. */
+  label?: string;
 }
 
 /** A secondary action as a gunmetal key. Orange stays reserved for the one committing key. */
-export function GunmetalKey({ children, href, type = 'button', onClick, busy, size = 'regular', className }: GunmetalKeyProps) {
+export function GunmetalKey({ children, href, type = 'button', onClick, busy, size = 'regular', className, label }: GunmetalKeyProps) {
   const classes = [styles.key, className].filter(Boolean).join(' ');
   if (href) {
     return (
@@ -27,6 +29,7 @@ export function GunmetalKey({ children, href, type = 'button', onClick, busy, si
       type={type}
       onClick={busy ? undefined : onClick}
       aria-disabled={busy || undefined}
+      aria-label={label}
       className={classes}
       data-size={size}
     >

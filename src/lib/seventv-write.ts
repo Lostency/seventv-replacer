@@ -184,12 +184,13 @@ export function createWriter(
   };
 
   /**
-   * A refused ß, umlaut or accented name, sent again by itself on v4 (v3 has mangled umlauts before).
+   * A refused change, sent again by itself on v4: paced tries for a ß, umlaut or accented name, one for any other.
    * Keeps the first refusal if 7TV still says no, or the request can't go through at all.
    */
   const alone = async (field: 'addEmote' | 'removeEmote', setId: string, emote: EmoteRef, refusal: ItemResult) => {
+    const tries = BEYOND_ASCII.test(emote.alias) ? BEYOND_ASCII_TRIES : 1;
     let result = refusal;
-    for (let attempt = 0; attempt < BEYOND_ASCII_TRIES && !result.ok && result.error.kind === 'refused'; attempt++) {
+    for (let attempt = 0; attempt < tries && !result.ok && result.error.kind === 'refused'; attempt++) {
       await wait((options.baseDelayMs ?? 1000) * 2 ** attempt);
       try {
         result = (await withRetry(() => batch(field, setId, [emote]), options))[0] ?? refusal;
@@ -217,6 +218,18 @@ export function createWriter(
     return results;
   };
 
+  /**
+   * Before an add counts as refused, the same spelling gets every chance: on its own over v4, then over v3.
+   * Keeps v4's refusal if both still say no.
+   */
+  const sameSpelling = async (setId: string, emote: EmoteRef, refusal: ItemResult) => {
+    const v4 = await alone('addEmote', setId, emote, refusal);
+    if (v4.ok || v4.error.kind !== 'refused') return v4;
+    await wait(pauseMs);
+    const [v3] = await oneByOne('ADD', setId, [emote]);
+    return v3?.ok ? v3 : v4;
+  };
+
   const many = async (field: 'addEmote' | 'removeEmote', setId: string, emotes: EmoteRef[]): Promise<ItemResult[]> => {
     const action = field === 'addEmote' ? 'ADD' : 'REMOVE';
     const results: ItemResult[] = [];
@@ -232,6 +245,8 @@ export function createWriter(
             if (isTransient(answer.error)) {
               await wait(options.baseDelayMs ?? 1000);
               answers[i] = (await oneByOne(action, setId, [chunk[i]!]))[0]!;
+            } else if (field === 'addEmote') {
+              answers[i] = await sameSpelling(setId, chunk[i]!, answer);
             } else if (BEYOND_ASCII.test(chunk[i]!.alias)) {
               answers[i] = await alone(field, setId, chunk[i]!, answer);
             }
