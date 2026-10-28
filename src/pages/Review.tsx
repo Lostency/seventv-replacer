@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { currentSeason, SEASONS, seasonLabel, type SeasonId } from '@shared/seasons';
-import type { Candidate, MeResponse, ReviewResponse } from '@shared/types';
+import type { AdminMapping, Candidate, MappingWritten, MeResponse, ReviewResponse } from '@shared/types';
 import {
   deleteMapping,
   fetchMe,
@@ -18,6 +18,8 @@ import { Knob } from '../design/Knob';
 import { SiteFooter } from '../design/SiteFooter';
 import { SiteHeader } from '../design/SiteHeader';
 import { UndoToast } from '../design/UndoToast';
+import { AddMapping } from './review/AddMapping';
+import { Mappings } from './review/Mappings';
 import { ReviewCard } from './review/ReviewCard';
 import styles from './Workbench.module.css';
 import review from './review/review.module.css';
@@ -47,6 +49,7 @@ export function Review() {
   const [threshold, setThresholdText] = useState('');
   const [thresholdError, setThresholdError] = useState<string>();
   const [thresholdSaved, setThresholdSaved] = useState<string>();
+  const thresholdFilled = useRef(false);
 
   const user = typeof me === 'object' ? me.user : null;
   const isAdmin = Boolean(user?.admin);
@@ -68,7 +71,9 @@ export function Review() {
       (body) => {
         if (!current) return;
         setQueue(body);
-        setThresholdText((text) => text || String(body.threshold));
+        // Only the first answer fills the field: later ones must not overwrite what the admin is typing.
+        if (!thresholdFilled.current) setThresholdText(String(body.threshold));
+        thresholdFilled.current = true;
       },
       (error: unknown) => {
         if (!current) return;
@@ -110,6 +115,21 @@ export function Review() {
       await rejectPairing(pairing);
       return { message: `Rejected ${c.alias}.`, undo: () => unrejectPairing(pairing) };
     });
+
+  const added = (originalId: string, { previous }: MappingWritten) => {
+    setProblem(undefined);
+    setToast({
+      message: previous ? 'Replaced the mapping.' : 'Added the mapping.',
+      undo: () => (previous ? writeMapping({ season, ...previous }) : deleteMapping(season, originalId)),
+    });
+    refresh();
+  };
+
+  const deleted = (row: AdminMapping | null) => {
+    setProblem(undefined);
+    if (row) setToast({ message: 'Deleted the mapping.', undo: () => writeMapping({ season, ...row }) });
+    refresh();
+  };
 
   const undo = async () => {
     if (!toast) return;
@@ -239,6 +259,21 @@ export function Review() {
                   ))}
                 </ul>
               )}
+            </section>
+
+            <section className={styles.step} aria-labelledby="add-heading">
+              <h2 id="add-heading" className={styles.sectionHeading}>
+                Add a mapping
+              </h2>
+              <p className={styles.stepLede}>
+                Paste the 7TV links of a normal emote and its {seasonLabel(season)} version. An emote that already
+                has a mapping gets the new one instead.
+              </p>
+              <AddMapping season={season} onAdded={added} onProblem={setProblem} />
+            </section>
+
+            <section className={styles.step} aria-label="Preset">
+              <Mappings season={season} version={version} onDeleted={deleted} onProblem={setProblem} />
             </section>
           </>
         )}

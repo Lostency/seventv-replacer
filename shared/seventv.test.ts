@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchChannelSets, fetchEmoteSet, parseChannel, parseSetRef, SevenTvError } from './seventv';
+import { fetchChannelSets, fetchEmoteSet, parseChannel, parseEmoteRef, parseSetRef, SevenTvError } from './seventv';
 
 const SET = '01HXYZ0000000000000000ABCD';
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -118,4 +118,16 @@ describe('fetchChannelSets', () => {
     });
     await expect(fetchChannelSets('niena', fetchFn)).rejects.toMatchObject({ kind: 'no-account' });
   });
+});
+
+describe('parseEmoteRef', () => {
+  it.each([
+    ['https://7tv.app/emotes/01F6MDFCSR0000WDA7ERT623YT', '01F6MDFCSR0000WDA7ERT623YT'],
+    ['7tv.app/emotes/01F6MDFCSR0000WDA7ERT623YT?tab=sets', '01F6MDFCSR0000WDA7ERT623YT'],
+    ['https://old.7tv.app/emotes/60ae958e229664e8667aea38', '60ae958e229664e8667aea38'],
+    ['https://cdn.7tv.app/emote/01F6MDFCSR0000WDA7ERT623YT/4x.webp', '01F6MDFCSR0000WDA7ERT623YT'],
+    [' 01F6MDFCSR0000WDA7ERT623YT ', '01F6MDFCSR0000WDA7ERT623YT'],
+    ['https://7tv.app/emote-sets/01F6MDFCSR0000WDA7ERT623YT', null],
+    ['peepoHappy', null],
+  ])('%s → %s', (input, id) => expect(parseEmoteRef(input)).toBe(id));
 });

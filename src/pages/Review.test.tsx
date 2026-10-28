@@ -1,7 +1,7 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
-import type { Candidate } from '@shared/types';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AdminMapping, Candidate } from '@shared/types';
 import { json, mockFetch, renderAt } from '../test/render';
 
 const admin = { user: { login: 'niena', displayName: 'niena', admin: true }, signInAvailable: true };
@@ -19,7 +19,10 @@ const candidate = (overrides: Partial<Candidate> = {}): Candidate => ({
 type Call = { method: string; url: string; body?: unknown };
 
 /** An admin's server: the queue answers `queue()` each time, writes are recorded. */
-function adminServer(queue: () => Candidate[], answers: { mapping?: unknown } = {}) {
+function adminServer(
+  queue: () => Candidate[],
+  answers: { mapping?: unknown; mappings?: () => AdminMapping[]; deleted?: AdminMapping } = {},
+) {
   const calls: Call[] = [];
   const record = (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
@@ -34,7 +37,9 @@ function adminServer(queue: () => Candidate[], answers: { mapping?: unknown } = 
     },
     '/api/admin/mappings/': (url, init) => {
       const method = record(url, init);
-      return method === 'DELETE' ? json({ deleted: null }) : json({ season: 'halloween', mappings: [] });
+      return method === 'DELETE'
+        ? json({ deleted: answers.deleted ?? null })
+        : json({ season: 'halloween', mappings: answers.mappings?.() ?? [] });
     },
     '/api/admin/mappings': (url, init) => {
       record(url, init);
@@ -130,6 +135,7 @@ describe('Review', () => {
     const calls = adminServer(() => []);
     renderAt('/review');
     const field = await screen.findByLabelText('Channels needed');
+    await waitFor(() => expect(field).toHaveValue('2'));
     await userEvent.clear(field);
     await userEvent.type(field, '0');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -141,5 +147,91 @@ describe('Review', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByText('Saved. Pairings need 3 channels.');
     expect(calls).toContainEqual({ method: 'PUT', url: '/api/admin/threshold', body: { threshold: 3 } });
+  });
+});
+
+const A = '01F6MDFCSR0000WDA7ERT623YT';
+const B = '01F6MDFYC80005TFYTWP1XJFSM';
+const row = (originalId: string, replacementId: string, source: AdminMapping['source'] = 'seed'): AdminMapping => ({
+  originalId,
+  replacementId,
+  source,
+  createdAt: '2026-10-27 12:00:00',
+});
+
+describe('Review: the preset', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('adds a mapping from two pasted emote links', async () => {
+    const calls = adminServer(() => []);
+    renderAt('/review');
+    await userEvent.type(await screen.findByLabelText('Normal emote link'), `https://7tv.app/emotes/${A}`);
+    await userEvent.type(screen.getByLabelText('Seasonal emote link'), `https://cdn.7tv.app/emote/${B}/4x.webp`);
+    await userEvent.click(screen.getByRole('button', { name: 'Add mapping' }));
+    expect(await screen.findByText('Added the mapping.')).toBeInTheDocument();
+    expect(calls).toContainEqual({
+      method: 'PUT',
+      url: '/api/admin/mappings',
+      body: { season: 'halloween', originalId: A, replacementId: B, source: 'manual' },
+    });
+    expect(screen.getByLabelText('Normal emote link')).toHaveValue('');
+  });
+
+  it('says when an added mapping replaced one', async () => {
+    adminServer(() => [], { mapping: { previous: row(A, 'RX') } });
+    renderAt('/review');
+    await userEvent.type(await screen.findByLabelText('Normal emote link'), A);
+    await userEvent.type(screen.getByLabelText('Seasonal emote link'), B);
+    await userEvent.click(screen.getByRole('button', { name: 'Add mapping' }));
+    expect(await screen.findByText('Replaced the mapping.')).toBeInTheDocument();
+  });
+
+  it('refuses a link that isn’t an emote, and the same emote twice', async () => {
+    const calls = adminServer(() => []);
+    renderAt('/review');
+    await userEvent.type(await screen.findByLabelText('Normal emote link'), 'peepoHappy');
+    await userEvent.type(screen.getByLabelText('Seasonal emote link'), B);
+    await userEvent.click(screen.getByRole('button', { name: 'Add mapping' }));
+    expect(await screen.findByText('That isn’t a 7TV emote link.')).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText('Normal emote link'));
+    await userEvent.type(screen.getByLabelText('Normal emote link'), B);
+    await userEvent.click(screen.getByRole('button', { name: 'Add mapping' }));
+    expect(await screen.findByText('Pick two different emotes.')).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === 'PUT')).toEqual([]);
+  });
+
+  it('deletes a mapping, and Undo puts it back as it was', async () => {
+    const calls = adminServer(() => [], { mappings: () => [row('O1', 'R1')], deleted: row('O1', 'R1') });
+    renderAt('/review');
+    expect(await screen.findByText('Halloween preset · 1 mapping')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete O1' }));
+    expect(await screen.findByText('Deleted the mapping.')).toBeInTheDocument();
+    expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/mappings/halloween/O1', body: undefined });
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(calls.at(-1)).toEqual({
+      method: 'PUT',
+      url: '/api/admin/mappings',
+      body: { season: 'halloween', originalId: 'O1', replacementId: 'R1', source: 'seed' },
+    });
+  });
+
+  it('downloads the preset in the data/presets format', async () => {
+    adminServer(() => [], { mappings: () => [row('B1', 'B2', 'review'), row('A1', 'A2')] });
+    const blobs: Blob[] = [];
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: (blob: Blob) => (blobs.push(blob), 'blob:x'), revokeObjectURL: () => {} }));
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    renderAt('/review');
+    await userEvent.click(await screen.findByRole('button', { name: 'Download JSON' }));
+    expect(blobs).toHaveLength(1);
+    const text = await blobs[0]!.text();
+    expect(JSON.parse(text)).toEqual({
+      season: 'halloween',
+      mappings: [
+        { originalId: 'A1', replacementId: 'A2' },
+        { originalId: 'B1', replacementId: 'B2' },
+      ],
+    });
+    expect(text.endsWith('\n')).toBe(true);
   });
 });
