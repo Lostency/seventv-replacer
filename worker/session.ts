@@ -74,3 +74,11 @@ export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   c.set('user', user);
   await next();
 };
+
+export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const user = await readSession(c);
+  if (!user) return c.json({ error: 'Sign in with Twitch to review.' }, 401);
+  if (!isAdmin(c.env, user.login)) return c.json({ error: 'Review is for admins.' }, 403);
+  c.set('user', user);
+  await next();
+};

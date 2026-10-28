@@ -77,6 +77,47 @@ export interface Candidate {
   current: string | null;
 }
 
+export interface ReviewResponse {
+  season: SeasonId;
+  threshold: number;
+  candidates: Candidate[];
+}
+
+/** Where a mapping came from: the original presets, the review queue, or two pasted links. */
+export type MappingSource = 'seed' | 'review' | 'manual';
+
+export interface AdminMapping extends MappingRow {
+  source: MappingSource;
+  createdAt: string;
+}
+
+export interface AdminMappingsResponse {
+  season: SeasonId;
+  mappings: AdminMapping[];
+}
+
+export interface MappingWrite {
+  season: SeasonId;
+  originalId: string;
+  replacementId: string;
+  source: MappingSource;
+}
+
+/** The mapping the write replaced, so Undo can put it back. */
+export interface MappingWritten {
+  previous: AdminMapping | null;
+}
+
+export interface MappingDeleted {
+  deleted: AdminMapping | null;
+}
+
+export interface RejectionRequest {
+  season: SeasonId;
+  originalId: string;
+  replacementId: string;
+}
+
 export interface ApiError {
   error: string;
   cooldown?: Cooldown;
