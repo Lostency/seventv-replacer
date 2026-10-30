@@ -25,6 +25,7 @@ import { BrokenEmotes } from './review/BrokenEmotes';
 import { ChoiceCard } from './review/ChoiceCard';
 import { Mappings } from './review/Mappings';
 import { ReviewCard } from './review/ReviewCard';
+import { usePreset } from './review/usePreset';
 import styles from './Workbench.module.css';
 import review from './review/review.module.css';
 
@@ -52,7 +53,10 @@ export function Review() {
   const [me, setMe] = useState<Loaded<MeResponse>>('loading');
   const [season, setSeason] = useState<SeasonId>(() => currentSeason(new Date()));
   const [queue, setQueue] = useState<Loaded<ReviewResponse>>('loading');
-  /** Bumped after every write, so everything on the page reads the preset afresh. */
+  /**
+   * Bumped after a write whose outcome only the server knows (Undo, a deleted or pasted mapping, a new
+   * threshold), so the page reads everything again. Accept, reject, keep and dismiss update it in place.
+   */
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -66,6 +70,20 @@ export function Review() {
   const isAdmin = Boolean(user?.admin);
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
   const dismiss = useCallback(() => setToast(null), []);
+  const preset = usePreset(season, version, isAdmin);
+
+  /** Takes an emote's settled options off the queue: those in `replacementIds`, or all of them. */
+  const settle = (originalId: string, replacementIds?: string[]) =>
+    setQueue((q) =>
+      typeof q === 'object'
+        ? {
+            ...q,
+            candidates: q.candidates.filter(
+              (c) => c.originalId !== originalId || (replacementIds !== undefined && !replacementIds.includes(c.replacementId)),
+            ),
+          }
+        : q,
+    );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -97,55 +115,77 @@ export function Review() {
     };
   }, [isAdmin, season, version]);
 
-  /** Runs one write; on success shows its toast and re-reads the queue. */
-  const decide = async (key: string, write: () => Promise<Toast>) => {
+  /**
+   * Runs one write; on success shows its toast and applies `saved` to the page, which every
+   * reload would cost D1 thousands of rows for. A failed write reads everything again instead.
+   */
+  const decide = async (key: string, write: () => Promise<Toast>, saved: () => void) => {
     setBusy(key);
     setProblem(undefined);
     try {
       setToast(await write());
+      saved();
     } catch (error) {
       setProblem(reasonOf(error, 'That didn’t save. Try again.'));
+      refresh();
     } finally {
       setBusy(null);
-      refresh();
     }
   };
 
   const accept = (c: Candidate) =>
-    decide(keyOf(c), async () => {
-      const { previous } = await writeMapping({ season, originalId: c.originalId, replacementId: c.replacementId, source: 'review' });
-      return {
-        message: `Accepted ${c.alias}.`,
-        undo: () => (previous ? writeMapping({ season, ...previous }) : deleteMapping(season, c.originalId)),
-      };
-    });
+    decide(
+      keyOf(c),
+      async () => {
+        const { previous } = await writeMapping({ season, originalId: c.originalId, replacementId: c.replacementId, source: 'review' });
+        return {
+          message: `Accepted ${c.alias}.`,
+          undo: () => (previous ? writeMapping({ season, ...previous }) : deleteMapping(season, c.originalId)),
+        };
+      },
+      () => {
+        settle(c.originalId, [c.replacementId]);
+        preset.mapped(c.originalId, c.replacementId, 'review');
+      },
+    );
 
   const reject = (c: Candidate) =>
-    decide(keyOf(c), async () => {
-      const pairing = { season, originalId: c.originalId, replacementId: c.replacementId };
-      await rejectPairing(pairing);
-      return { message: `Rejected ${c.alias}.`, undo: () => unrejectPairing(pairing) };
-    });
+    decide(
+      keyOf(c),
+      async () => {
+        const pairing = { season, originalId: c.originalId, replacementId: c.replacementId };
+        await rejectPairing(pairing);
+        return { message: `Rejected ${c.alias}.`, undo: () => unrejectPairing(pairing) };
+      },
+      () => settle(c.originalId, [c.replacementId]),
+    );
 
   /** Keeps one option for an emote and rejects the others, the replaced mapping included. */
   const keep = (options: Candidate[], replacementId: string | null) => {
     const { originalId, alias, current } = options[0]!;
     const rejectIds = options.map((o) => o.replacementId).filter((id) => id !== replacementId);
     if (replacementId && current) rejectIds.push(current);
-    return decide(originalId, async () => {
-      const { previous } = await sendDecision({ season, originalId, replacementId, rejectIds });
-      const unreject = () =>
-        Promise.all(rejectIds.map((id) => unrejectPairing({ season, originalId, replacementId: id })));
-      const unmap = () => (previous ? writeMapping({ season, ...previous }) : deleteMapping(season, originalId));
-      return {
-        message: replacementId
-          ? `Kept a new ${alias}.`
-          : current
-            ? `Kept the current ${alias}.`
-            : `Rejected every ${alias} option.`,
-        undo: () => Promise.all([unreject(), replacementId ? unmap() : null]),
-      };
-    });
+    return decide(
+      originalId,
+      async () => {
+        const { previous } = await sendDecision({ season, originalId, replacementId, rejectIds });
+        const unreject = () =>
+          Promise.all(rejectIds.map((id) => unrejectPairing({ season, originalId, replacementId: id })));
+        const unmap = () => (previous ? writeMapping({ season, ...previous }) : deleteMapping(season, originalId));
+        return {
+          message: replacementId
+            ? `Kept a new ${alias}.`
+            : current
+              ? `Kept the current ${alias}.`
+              : `Rejected every ${alias} option.`,
+          undo: () => Promise.all([unreject(), replacementId ? unmap() : null]),
+        };
+      },
+      () => {
+        settle(originalId);
+        if (replacementId) preset.mapped(originalId, replacementId, 'review');
+      },
+    );
   };
 
   const added = (originalId: string, { previous }: MappingWritten) => {
@@ -160,7 +200,7 @@ export function Review() {
   const dismissed = (row: BrokenEmote) => {
     setProblem(undefined);
     setToast({ message: 'Dismissed the report.', undo: () => restoreBroken(season, row) });
-    refresh();
+    preset.dismissed(row);
   };
 
   const deleted = (row: AdminMapping | null) => {
@@ -319,7 +359,7 @@ export function Review() {
               </p>
               <BrokenEmotes
                 season={season}
-                version={version}
+                broken={preset.broken}
                 onReplaced={added}
                 onDeleted={deleted}
                 onDismissed={dismissed}
@@ -339,7 +379,7 @@ export function Review() {
             </section>
 
             <section className={styles.step} aria-label="Preset">
-              <Mappings season={season} version={version} onDeleted={deleted} onProblem={setProblem} />
+              <Mappings season={season} mappings={preset.mappings} onDeleted={deleted} onProblem={setProblem} />
             </section>
           </>
         )}

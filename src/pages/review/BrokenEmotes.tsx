@@ -1,9 +1,9 @@
 import { ArrowRight } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { seasonLabel, type SeasonId } from '@shared/seasons';
 import { parseEmoteRef } from '@shared/seventv';
 import type { AdminMapping, BrokenEmote, MappingWritten } from '@shared/types';
-import { deleteMapping, dismissBroken, fetchBroken, writeMapping } from '../../api';
+import { deleteMapping, dismissBroken, writeMapping } from '../../api';
 import { DeckField } from '../../design/DeckField';
 import { GunmetalKey } from '../../design/GunmetalKey';
 import { Keycap } from '../../design/Keycap';
@@ -12,8 +12,7 @@ import styles from './review.module.css';
 
 interface BrokenEmotesProps {
   season: SeasonId;
-  /** Changes after every write on the page, so the list reads the reports again. */
-  version: number;
+  broken: BrokenEmote[] | 'loading' | 'failed';
   onReplaced(originalId: string, result: MappingWritten): void;
   onDeleted(row: AdminMapping | null): void;
   onDismissed(row: BrokenEmote): void;
@@ -26,23 +25,11 @@ const times = (n: number) => (n === 1 ? 'once' : `${n} times`);
 const reasonOf = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
 /** Mappings whose emote Replace runs found gone or unusable on 7TV, with what 7TV said and the ways to fix them. */
-export function BrokenEmotes({ season, version, onReplaced, onDeleted, onDismissed, onProblem }: BrokenEmotesProps) {
-  const [broken, setBroken] = useState<BrokenEmote[] | 'loading' | 'failed'>('loading');
+export function BrokenEmotes({ season, broken, onReplaced, onDeleted, onDismissed, onProblem }: BrokenEmotesProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [replacing, setReplacing] = useState<string | null>(null);
 
-  useEffect(() => {
-    let current = true;
-    fetchBroken(season).then(
-      (body) => current && setBroken(body.broken),
-      () => current && setBroken('failed'),
-    );
-    return () => {
-      current = false;
-    };
-  }, [season, version]);
-
-  /** Runs one action on a report; the page re-reads everything afterwards. */
+  /** Runs one action on a report; the page updates the lists afterwards. */
   const act = async (originalId: string, action: () => Promise<void>, fallback: string) => {
     setBusy(originalId);
     try {
