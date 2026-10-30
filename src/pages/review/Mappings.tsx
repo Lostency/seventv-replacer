@@ -1,8 +1,8 @@
 import { ArrowRight } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { seasonLabel, type SeasonId } from '@shared/seasons';
 import type { AdminMapping, PresetFile } from '@shared/types';
-import { deleteMapping, fetchAdminMappings } from '../../api';
+import { deleteMapping } from '../../api';
 import { GunmetalKey } from '../../design/GunmetalKey';
 import { Keycap } from '../../design/Keycap';
 import workbench from '../Workbench.module.css';
@@ -10,8 +10,7 @@ import styles from './review.module.css';
 
 interface MappingsProps {
   season: SeasonId;
-  /** Changes after every write on the page, so the list reads the preset again. */
-  version: number;
+  mappings: AdminMapping[] | 'loading' | 'failed';
   /** Called after a mapping was deleted, with the row as it was. */
   onDeleted(deleted: AdminMapping | null): void;
   onProblem(message: string): void;
@@ -38,20 +37,8 @@ function download(name: string, text: string) {
 }
 
 /** Every mapping in the season's preset, each deletable, and the whole preset as a file. */
-export function Mappings({ season, version, onDeleted, onProblem }: MappingsProps) {
-  const [mappings, setMappings] = useState<AdminMapping[] | 'loading' | 'failed'>('loading');
+export function Mappings({ season, mappings, onDeleted, onProblem }: MappingsProps) {
   const [busy, setBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    let current = true;
-    fetchAdminMappings(season).then(
-      (body) => current && setMappings(body.mappings),
-      () => current && setMappings('failed'),
-    );
-    return () => {
-      current = false;
-    };
-  }, [season, version]);
 
   const remove = async (originalId: string) => {
     setBusy(originalId);

@@ -16,9 +16,19 @@ const candidate = (overrides: Partial<Candidate> = {}): Candidate => ({
   ...overrides,
 });
 
+const brokenReport: BrokenEmote = {
+  originalId: 'O1',
+  replacementId: 'R1',
+  brokenId: 'R1',
+  reason: 'Emote is private',
+  reports: 3,
+  firstSeen: '2026-10-27 12:00:00',
+  lastSeen: '2026-10-28 09:00:00',
+};
+
 type Call = { method: string; url: string; body?: unknown };
 
-/** An admin's server: the queue answers `queue()` each time, writes are recorded. */
+/** An admin's server: the queue answers `queue()` each time, writes are recorded, and reads counted in `calls.reads`. */
 function adminServer(
   queue: () => Candidate[],
   answers: {
@@ -29,10 +39,11 @@ function adminServer(
     broken?: () => BrokenEmote[];
   } = {},
 ) {
-  const calls: Call[] = [];
+  const calls = Object.assign([] as Call[], { reads: [] as string[] });
   const record = (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
-    if (method !== 'GET') calls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    if (method === 'GET') calls.reads.push(url);
+    else calls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined });
     return method;
   };
   mockFetch({
@@ -207,6 +218,63 @@ describe('Review', () => {
     expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/rejections/halloween/O1/R1', body: undefined });
   });
 
+  it('accepting takes the card off the queue and adds the mapping to the preset without reading either again', async () => {
+    const calls = adminServer(() => [candidate()]);
+    renderAt('/review');
+    expect(await screen.findByText('Halloween preset · 0 mappings')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Accept' }));
+    expect(await screen.findByText('Accepted peepoHappy.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+    expect(screen.getByText('Halloween preset · 1 mapping')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete O1' })).toBeInTheDocument();
+    expect(calls.reads.filter((url) => url.startsWith('/api/admin/review/'))).toHaveLength(1);
+    expect(calls.reads.filter((url) => url.startsWith('/api/admin/mappings/'))).toHaveLength(1);
+  });
+
+  it('rejecting takes the card off the queue without reading it again', async () => {
+    const calls = adminServer(() => [candidate(), candidate({ originalId: 'O2', replacementId: 'R2', alias: 'Sadge' })]);
+    renderAt('/review');
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Reject' }))[0]!);
+    expect(await screen.findByText('Rejected peepoHappy.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Reject' })).toHaveLength(1);
+    expect(screen.getByText('Sadge → Sadge · seen in 3 channels')).toBeInTheDocument();
+    expect(calls.reads.filter((url) => url.startsWith('/api/admin/review/'))).toHaveLength(1);
+  });
+
+  it('keeping a new option clears the card, swaps the preset row and drops the old mapping’s broken report, reading nothing again', async () => {
+    const previous = row('O1', 'RX');
+    const calls = adminServer(
+      () => [candidate({ current: 'RX' }), candidate({ replacementId: 'R2', channels: 2, current: 'RX' })],
+      {
+        decision: { previous },
+        mappings: () => [previous],
+        broken: () => [{ ...brokenReport, replacementId: 'RX', brokenId: 'RX' }],
+      },
+    );
+    renderAt('/review');
+    const broken = await screen.findByRole('region', { name: 'Broken emotes' });
+    expect(await within(broken).findByText(/Emote is private/)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Keep option 2' }));
+    expect(await screen.findByText('Kept a new peepoHappy.')).toBeInTheDocument();
+    expect(screen.queryByText('peepoHappy · 2 options')).not.toBeInTheDocument();
+    expect(screen.getByText('Halloween preset · 1 mapping')).toBeInTheDocument();
+    expect(within(screen.getByRole('list', { name: 'Halloween mappings' })).getByRole('link', { name: 'Seasonal on 7TV' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/R2'),
+    );
+    expect(within(broken).queryByText(/Emote is private/)).not.toBeInTheDocument();
+    expect(calls.reads.filter((url) => !url.startsWith('/api/me'))).toHaveLength(3);
+  });
+
+  it('Undo reads the queue again, since the server decides what comes back', async () => {
+    const calls = adminServer(() => [candidate()]);
+    renderAt('/review');
+    await userEvent.click(await screen.findByRole('button', { name: 'Reject' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(await screen.findByRole('button', { name: 'Reject' })).toBeInTheDocument();
+    expect(calls.reads.filter((url) => url.startsWith('/api/admin/review/'))).toHaveLength(2);
+  });
+
   it('saves the threshold, and refuses one outside 1 to 50', async () => {
     const calls = adminServer(() => []);
     renderAt('/review');
@@ -313,15 +381,7 @@ describe('Review: the preset', () => {
 });
 
 describe('Review: broken emotes', () => {
-  const report: BrokenEmote = {
-    originalId: 'O1',
-    replacementId: 'R1',
-    brokenId: 'R1',
-    reason: 'Emote is private',
-    reports: 3,
-    firstSeen: '2026-10-27 12:00:00',
-    lastSeen: '2026-10-28 09:00:00',
-  };
+  const report = brokenReport;
 
   it('lists them apart from the queue, with what 7TV said and how often', async () => {
     adminServer(() => [], { broken: () => [report] });
@@ -344,6 +404,16 @@ describe('Review: broken emotes', () => {
     await waitFor(() =>
       expect(calls).toContainEqual({ method: 'PUT', url: '/api/admin/broken', body: { season: 'halloween', ...report } }),
     );
+  });
+
+  it('dismissing takes the report off without reading the reports again', async () => {
+    const calls = adminServer(() => [], { broken: () => [report] });
+    renderAt('/review');
+    const section = await screen.findByRole('region', { name: 'Broken emotes' });
+    await userEvent.click(await within(section).findByRole('button', { name: 'Dismiss O1' }));
+    expect(await screen.findByText('Dismissed the report.')).toBeInTheDocument();
+    expect(within(section).queryByText(/Emote is private/)).not.toBeInTheDocument();
+    expect(calls.reads.filter((url) => url.startsWith('/api/admin/broken/'))).toHaveLength(1);
   });
 
   it('replaces the broken seasonal emote from a pasted link', async () => {

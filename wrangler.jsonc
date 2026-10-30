@@ -1,8 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "seasonal-emote-replacer",
+  // The Worker that serves 7tv.niena.tv. The database keeps its original name below.
+  "name": "seventv-replacer-new",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "7tv.niena.tv", "custom_domain": true }],
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
