@@ -77,6 +77,19 @@ describe('comparisons', () => {
     expect(await sightings()).toEqual([{ o: 'A', r: 'A2', alias: 'peepoHappy', ch: 'U-niena', season: 'halloween' }]);
   });
 
+  it('records who submitted, both set names and the match count', async () => {
+    await post('/api/comparisons', cookie, {
+      normalSetId: NORMAL,
+      seasonalSetId: SEASONAL,
+      season: 'halloween',
+      excluded: [{ originalId: 'B', replacementId: 'B2' }],
+    });
+    const row = await env.DB.prepare(
+      'SELECT submitter_login AS login, submitter_name AS name, normal_set_name AS n, seasonal_set_name AS s, match_count AS m FROM comparisons',
+    ).first();
+    expect(row).toEqual({ login: 'viewer', name: 'viewer', n: 'Set N01', s: 'Set S01', m: 1 });
+  });
+
   it('holds the same pair for 14 days, then replaces its sightings', async () => {
     const submit = (excluded: unknown[] = []) =>
       post('/api/comparisons', cookie, { normalSetId: NORMAL, seasonalSetId: SEASONAL, season: 'halloween', excluded });
@@ -96,6 +109,8 @@ describe('comparisons', () => {
     expect((await sightings()).map((s) => s.alias)).toEqual(['peepoHappy', 'Sadge']);
     const { results } = await env.DB.prepare('SELECT COUNT(*) AS n FROM comparisons').all<{ n: number }>();
     expect(results[0]!.n).toBe(1);
+    const count = await env.DB.prepare('SELECT match_count AS m FROM comparisons').first<{ m: number }>();
+    expect(count!.m).toBe(2);
   });
 
   it('leaves other pairs from the same channel alone', async () => {

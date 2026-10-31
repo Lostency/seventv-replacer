@@ -108,13 +108,31 @@ comparisons.post('/', async (c) => {
     db.prepare('DELETE FROM sightings WHERE comparison_id = ?').bind(id),
     db
       .prepare(
-        `INSERT INTO comparisons (id, normal_set_id, seasonal_set_id, season, channel_id, channel_name, submitted_by, submitted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO comparisons (id, normal_set_id, seasonal_set_id, season, channel_id, channel_name, submitted_by, submitted_at,
+                                  submitter_login, submitter_name, normal_set_name, seasonal_set_name, match_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (normal_set_id, seasonal_set_id) DO UPDATE SET
            season = excluded.season, channel_id = excluded.channel_id, channel_name = excluded.channel_name,
-           submitted_by = excluded.submitted_by, submitted_at = excluded.submitted_at`,
+           submitted_by = excluded.submitted_by, submitted_at = excluded.submitted_at,
+           submitter_login = excluded.submitter_login, submitter_name = excluded.submitter_name,
+           normal_set_name = excluded.normal_set_name, seasonal_set_name = excluded.seasonal_set_name,
+           match_count = excluded.match_count`,
       )
-      .bind(id, normalSetId, seasonalSetId, season, owner.id, owner.name, user.twitchId, submittedAt),
+      .bind(
+        id,
+        normalSetId,
+        seasonalSetId,
+        season,
+        owner.id,
+        owner.name,
+        user.twitchId,
+        submittedAt,
+        user.login,
+        user.displayName,
+        pair.normal.name,
+        pair.seasonal.name,
+        matches.length,
+      ),
     // One statement for every sighting: D1 caps the queries a single request may run.
     db
       .prepare(
