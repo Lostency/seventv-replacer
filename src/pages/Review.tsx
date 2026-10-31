@@ -22,6 +22,7 @@ import { SiteHeader } from '../design/SiteHeader';
 import { UndoToast } from '../design/UndoToast';
 import { AddMapping } from './review/AddMapping';
 import { BrokenEmotes } from './review/BrokenEmotes';
+import { Comparisons } from './review/Comparisons';
 import { ChoiceCard } from './review/ChoiceCard';
 import { Mappings } from './review/Mappings';
 import { ReviewCard } from './review/ReviewCard';
@@ -58,6 +59,8 @@ export function Review() {
    * threshold), so the page reads everything again. Accept, reject, keep and dismiss update it in place.
    */
   const [version, setVersion] = useState(0);
+  /** Bumped after a comparison moves or is discarded: only the queue depends on sightings. */
+  const [queueVersion, setQueueVersion] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [problem, setProblem] = useState<string>();
@@ -113,7 +116,7 @@ export function Review() {
     return () => {
       current = false;
     };
-  }, [isAdmin, season, version]);
+  }, [isAdmin, season, version, queueVersion]);
 
   /**
    * Runs one write; on success shows its toast and applies `saved` to the page, which every
@@ -347,6 +350,17 @@ export function Review() {
                   })}
                 </ul>
               )}
+            </section>
+
+            <section className={styles.step} aria-labelledby="comparisons-heading">
+              <h2 id="comparisons-heading" className={styles.sectionHeading}>
+                Comparisons
+              </h2>
+              <p className={styles.stepLede}>
+                Every submitted comparison, by who sent it. Move one to another season, or discard what shouldn’t
+                count. Accepted mappings stay as they are.
+              </p>
+              <Comparisons onChanged={() => setQueueVersion((v) => v + 1)} onProblem={setProblem} />
             </section>
 
             <section className={styles.step} aria-labelledby="broken-heading">

@@ -1,6 +1,9 @@
 import type { SeasonId } from '@shared/seasons';
 import type {
+  AdminComparisonsResponse,
   ApiError,
+  ComparisonMoved,
+  ComparisonsDiscarded,
   ComparisonPreview,
   ComparisonPreviewRequest,
   ComparisonSubmitRequest,
@@ -115,3 +118,18 @@ export const dismissBroken = (season: SeasonId, { originalId, replacementId }: B
 
 /** Only the Undo toast puts a dismissed report back. */
 export const restoreBroken = (season: SeasonId, row: BrokenEmote) => sendJson<unknown>('PUT', '/api/admin/broken', { season, ...row });
+
+export const fetchAdminComparisons = () => sendJson<AdminComparisonsResponse>('GET', '/api/admin/comparisons');
+
+export const moveComparison = (id: string, season: SeasonId) =>
+  sendJson<ComparisonMoved>('PUT', `/api/admin/comparisons/${encodeURIComponent(id)}/season`, { season });
+
+export const discardComparison = (id: string) =>
+  sendJson<ComparisonsDiscarded>('DELETE', `/api/admin/comparisons/${encodeURIComponent(id)}`);
+
+/** Discards everything one submitter sent; with `block`, they can't submit again until unblocked. */
+export const discardSubmitter = (twitchId: string, block: boolean) =>
+  sendJson<ComparisonsDiscarded>('POST', `/api/admin/submitters/${encodeURIComponent(twitchId)}/discard`, { block });
+
+export const unblockSubmitter = (twitchId: string) =>
+  sendJson<void>('DELETE', `/api/admin/blocked/${encodeURIComponent(twitchId)}`);

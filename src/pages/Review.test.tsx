@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AdminMapping, BrokenEmote, Candidate } from '@shared/types';
+import type { AdminComparison, AdminComparisonsResponse, AdminMapping, BrokenEmote, Candidate, SubmitterGroup } from '@shared/types';
 import { json, mockFetch, renderAt } from '../test/render';
 
 const admin = { user: { login: 'niena', displayName: 'niena', admin: true }, signInAvailable: true };
@@ -37,6 +37,8 @@ function adminServer(
     mappings?: () => AdminMapping[];
     deleted?: AdminMapping;
     broken?: () => BrokenEmote[];
+    comparisons?: AdminComparisonsResponse;
+    discardFails?: boolean;
   } = {},
 ) {
   const calls = Object.assign([] as Call[], { reads: [] as string[] });
@@ -46,8 +48,38 @@ function adminServer(
     else calls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined });
     return method;
   };
+  const listed = answers.comparisons ?? { submitters: [], blocked: [] };
+  const findComparison = (id: string) => listed.submitters.flatMap((s) => s.comparisons).find((c) => c.id === id)!;
   mockFetch({
     '/api/me': () => json(admin),
+    '/api/admin/comparisons': (url, init) => {
+      const method = record(url, init);
+      const id = decodeURIComponent(url.split('/')[4] ?? '');
+      if (method === 'GET') return json(listed);
+      if (method === 'PUT') {
+        const { season } = JSON.parse(String(init!.body)) as { season: string };
+        return json({ comparison: { ...findComparison(id), season } });
+      }
+      if (answers.discardFails) return json({ error: 'The database went away.' }, 500);
+      return json({ comparisons: 1, matches: findComparison(id).matches, blocked: null });
+    },
+    '/api/admin/submitters/': (url, init) => {
+      record(url, init);
+      const twitchId = decodeURIComponent(url.split('/')[4]!);
+      const group = listed.submitters.find((s) => s.twitchId === twitchId)!;
+      const { block } = JSON.parse(String(init!.body)) as { block: boolean };
+      return json({
+        comparisons: group.comparisons.length,
+        matches: group.matches,
+        blocked: block
+          ? { twitchId, login: group.login, displayName: group.displayName, blockedAt: '2026-10-31 12:00:00' }
+          : null,
+      });
+    },
+    '/api/admin/blocked/': (url, init) => {
+      record(url, init);
+      return new Response(null, { status: 204 });
+    },
     '/api/admin/review/': (url, init) => {
       record(url, init);
       return json({ season: url.split('/').pop(), threshold: 2, candidates: queue() });
@@ -263,7 +295,9 @@ describe('Review', () => {
       expect.stringContaining('/R2'),
     );
     expect(within(broken).queryByText(/Emote is private/)).not.toBeInTheDocument();
-    expect(calls.reads.filter((url) => !url.startsWith('/api/me'))).toHaveLength(3);
+    // The comparisons section reads its own list once on load; nothing here reads it again.
+    expect(calls.reads.filter((url) => !url.startsWith('/api/me') && url !== '/api/admin/comparisons')).toHaveLength(3);
+    expect(calls.reads.filter((url) => url === '/api/admin/comparisons')).toHaveLength(1);
   });
 
   it('Undo reads the queue again, since the server decides what comes back', async () => {
@@ -440,5 +474,151 @@ describe('Review: broken emotes', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Delete mapping O1' }));
     expect(await screen.findByText('Deleted the mapping.')).toBeInTheDocument();
     expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/mappings/halloween/O1', body: undefined });
+  });
+});
+
+describe('Review: comparisons', () => {
+  const comparison = (overrides: Partial<AdminComparison> = {}): AdminComparison => ({
+    id: 'C1',
+    channelName: 'forsen',
+    normalSetId: 'N1',
+    normalSetName: 'Main',
+    seasonalSetId: 'S1',
+    seasonalSetName: 'Xmas',
+    season: 'halloween',
+    matches: 88,
+    submittedAt: '2026-10-31T10:00:00.000Z',
+    ...overrides,
+  });
+  const group = (overrides: Partial<SubmitterGroup> = {}): SubmitterGroup => ({
+    twitchId: 'T2',
+    login: 'spammer',
+    displayName: 'spammer',
+    admin: false,
+    matches: 88,
+    latest: '2026-10-31T10:00:00.000Z',
+    comparisons: [comparison()],
+    ...overrides,
+  });
+  const section = () => screen.findByRole('region', { name: 'Comparisons' });
+
+  it('lists comparisons by submitter, with channel, sets, season, matches and date', async () => {
+    adminServer(() => [], { comparisons: { submitters: [group()], blocked: [] } });
+    renderAt('/review');
+    const card = await within(await section()).findByRole('region', { name: 'spammer' });
+    expect(within(card).getByText('1 comparison · 88 matches')).toBeInTheDocument();
+    expect(within(card).getByText('forsen')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Main' })).toHaveAttribute('href', 'https://7tv.app/emote-sets/N1');
+    expect(within(card).getByRole('link', { name: 'Xmas' })).toHaveAttribute('href', 'https://7tv.app/emote-sets/S1');
+    expect(within(card).getByText(/Oct 31, 2026/)).toBeInTheDocument();
+    const knob = within(card).getByRole('radiogroup', { name: 'Season for forsen' });
+    expect(within(knob).getByRole('radio', { name: 'Halloween' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('shows the Twitch ID and set IDs when names are missing', async () => {
+    const old = group({
+      twitchId: 'T9',
+      login: null,
+      displayName: null,
+      comparisons: [comparison({ normalSetName: null, seasonalSetName: null })],
+    });
+    adminServer(() => [], { comparisons: { submitters: [old], blocked: [] } });
+    renderAt('/review');
+    const card = await within(await section()).findByRole('region', { name: 'Twitch ID T9' });
+    expect(within(card).getByRole('link', { name: 'N1' })).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'S1' })).toBeInTheDocument();
+  });
+
+  it('moving a comparison re-reads only the review queue', async () => {
+    const calls = adminServer(() => [], { comparisons: { submitters: [group()], blocked: [] } });
+    renderAt('/review');
+    const card = await within(await section()).findByRole('region', { name: 'spammer' });
+    await waitFor(() => expect(calls.reads.filter((u) => u.startsWith('/api/admin/review/'))).toHaveLength(1));
+    const before = calls.reads.length;
+    const knob = within(card).getByRole('radiogroup', { name: 'Season for forsen' });
+    await userEvent.click(within(knob).getByRole('radio', { name: 'Winter' }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({ method: 'PUT', url: '/api/admin/comparisons/C1/season', body: { season: 'winter' } }),
+    );
+    await waitFor(() => expect(within(knob).getByRole('radio', { name: 'Winter' })).toHaveAttribute('aria-checked', 'true'));
+    await waitFor(() => expect(calls.reads.filter((u) => u.startsWith('/api/admin/review/'))).toHaveLength(2));
+    expect(calls.reads.slice(before).filter((u) => !u.startsWith('/api/admin/review/'))).toEqual([]);
+  });
+
+  it('discarding one comparison asks first, then takes it off without reading the list again', async () => {
+    const two = group({ matches: 100, comparisons: [comparison(), comparison({ id: 'C2', channelName: 'xqc', matches: 12 })] });
+    const calls = adminServer(() => [], { comparisons: { submitters: [two], blocked: [] } });
+    renderAt('/review');
+    const card = await within(await section()).findByRole('region', { name: 'spammer' });
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard forsen' }));
+    expect(within(card).getByText('Discard 1 comparison and 88 matches?')).toBeInTheDocument();
+    await userEvent.click(within(card).getByRole('button', { name: 'Cancel' }));
+    expect(calls.filter((c) => c.method === 'DELETE')).toEqual([]);
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard forsen' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(within(card).queryByText('forsen')).not.toBeInTheDocument());
+    expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/comparisons/C1', body: undefined });
+    expect(within(card).getByText('1 comparison · 12 matches')).toBeInTheDocument();
+    expect(calls.reads.filter((u) => u === '/api/admin/comparisons')).toHaveLength(1);
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard xqc' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'spammer' })).not.toBeInTheDocument());
+  });
+
+  it('discard all & block moves the submitter to the Blocked list', async () => {
+    const big = group({
+      matches: 3902,
+      comparisons: Array.from({ length: 41 }, (_, i) => comparison({ id: `C${i}`, channelName: `ch${i}`, matches: i === 0 ? 3862 : 1 })),
+    });
+    const calls = adminServer(() => [], { comparisons: { submitters: [big], blocked: [] } });
+    renderAt('/review');
+    const list = await section();
+    const card = await within(list).findByRole('region', { name: 'spammer' });
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard all & block' }));
+    expect(within(card).getByText('Discard 41 comparisons and 3,902 matches, and block spammer?')).toBeInTheDocument();
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard and block' }));
+    await waitFor(() => expect(within(list).queryByRole('region', { name: 'spammer' })).not.toBeInTheDocument());
+    expect(calls).toContainEqual({ method: 'POST', url: '/api/admin/submitters/T2/discard', body: { block: true } });
+
+    const blocked = within(list).getByRole('list', { name: 'Blocked' });
+    expect(within(blocked).getByText('spammer')).toBeInTheDocument();
+    await userEvent.click(within(blocked).getByRole('button', { name: 'Unblock spammer' }));
+    await waitFor(() => expect(within(list).queryByRole('list', { name: 'Blocked' })).not.toBeInTheDocument());
+    expect(calls).toContainEqual({ method: 'DELETE', url: '/api/admin/blocked/T2', body: undefined });
+  });
+
+  it('hides the block key on an admin’s card', async () => {
+    const own = group({ twitchId: 'T1', login: 'niena', displayName: 'niena', admin: true });
+    adminServer(() => [], { comparisons: { submitters: [own], blocked: [] } });
+    renderAt('/review');
+    const card = await within(await section()).findByRole('region', { name: 'niena' });
+    expect(within(card).getByRole('button', { name: 'Discard all' })).toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: 'Discard all & block' })).not.toBeInTheDocument();
+  });
+
+  it('says when a discard fails, and reads the list again', async () => {
+    const calls = adminServer(() => [], { comparisons: { submitters: [group()], blocked: [] }, discardFails: true });
+    renderAt('/review');
+    const card = await within(await section()).findByRole('region', { name: 'spammer' });
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard forsen' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Discard' }));
+    expect(await screen.findByText('The database went away.')).toBeInTheDocument();
+    await waitFor(() => expect(calls.reads.filter((u) => u === '/api/admin/comparisons')).toHaveLength(2));
+  });
+
+  it('starts cards after the first three collapsed', async () => {
+    const many = ['A', 'B', 'C', 'D'].map((n) =>
+      group({ twitchId: `T-${n}`, login: n, displayName: n, comparisons: [comparison({ id: `C-${n}`, channelName: `ch-${n}` })] }),
+    );
+    adminServer(() => [], { comparisons: { submitters: many, blocked: [] } });
+    renderAt('/review');
+    const list = await section();
+    expect(within(await within(list).findByRole('region', { name: 'C' })).getByText('ch-C')).toBeInTheDocument();
+    const last = within(list).getByRole('region', { name: 'D' });
+    expect(within(last).queryByText('ch-D')).not.toBeInTheDocument();
+    await userEvent.click(within(last).getByRole('button', { name: 'Show 1 comparison' }));
+    expect(within(last).getByText('ch-D')).toBeInTheDocument();
   });
 });
