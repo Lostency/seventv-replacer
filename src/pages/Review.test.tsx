@@ -39,6 +39,8 @@ function adminServer(
     broken?: () => BrokenEmote[];
     comparisons?: AdminComparisonsResponse;
     discardFails?: boolean;
+    /** Holds every season move's answer until it resolves. */
+    moveGate?: Promise<void>;
   } = {},
 ) {
   const calls = Object.assign([] as Call[], { reads: [] as string[] });
@@ -52,11 +54,12 @@ function adminServer(
   const findComparison = (id: string) => listed.submitters.flatMap((s) => s.comparisons).find((c) => c.id === id)!;
   mockFetch({
     '/api/me': () => json(admin),
-    '/api/admin/comparisons': (url, init) => {
+    '/api/admin/comparisons': async (url, init) => {
       const method = record(url, init);
       const id = decodeURIComponent(url.split('/')[4] ?? '');
       if (method === 'GET') return json(listed);
       if (method === 'PUT') {
+        await answers.moveGate;
         const { season } = JSON.parse(String(init!.body)) as { season: string };
         return json({ comparison: { ...findComparison(id), season } });
       }
@@ -543,6 +546,22 @@ describe('Review: comparisons', () => {
     await waitFor(() => expect(within(knob).getByRole('radio', { name: 'Winter' })).toHaveAttribute('aria-checked', 'true'));
     await waitFor(() => expect(calls.reads.filter((u) => u.startsWith('/api/admin/review/'))).toHaveLength(2));
     expect(calls.reads.slice(before).filter((u) => !u.startsWith('/api/admin/review/'))).toEqual([]);
+  });
+
+  it('sends one move at a time, however often the knob turns while it saves', async () => {
+    let answer!: () => void;
+    const moveGate = new Promise<void>((resolve) => (answer = resolve));
+    const calls = adminServer(() => [], { comparisons: { submitters: [group()], blocked: [] }, moveGate });
+    renderAt('/review');
+    const card = await within(await section()).findByRole('region', { name: 'spammer' });
+    const knob = within(card).getByRole('radiogroup', { name: 'Season for forsen' });
+    await userEvent.click(within(knob).getByRole('radio', { name: 'Winter' }));
+    await userEvent.click(within(knob).getByRole('radio', { name: 'Winter' }));
+    await userEvent.click(within(knob).getByRole('radio', { name: 'Winter' }));
+    answer();
+    await waitFor(() => expect(within(knob).getByRole('radio', { name: 'Winter' })).toHaveAttribute('aria-checked', 'true'));
+    expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(1);
+    await waitFor(() => expect(calls.reads.filter((u) => u.startsWith('/api/admin/review/'))).toHaveLength(2));
   });
 
   it('discarding one comparison asks first, then takes it off without reading the list again', async () => {

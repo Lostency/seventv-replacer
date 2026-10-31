@@ -96,7 +96,11 @@ comparisonsAdmin.post('/submitters/:twitchId/discard', async (c) => {
     return c.json<ApiError>({ error: 'Admins can’t be blocked.' }, 403);
   }
 
-  const [blocked] = await db.batch<BlockedSubmitter>([
+  // The counts are read again inside the batch: another admin's discard may have landed since the check above.
+  const [counted, blocked] = await db.batch<{ comparisons: number; matches: number } & BlockedSubmitter>([
+    db
+      .prepare('SELECT COUNT(*) AS comparisons, COALESCE(SUM(match_count), 0) AS matches FROM comparisons WHERE submitted_by = ?')
+      .bind(twitchId),
     // Before the deletes, so it can still read the submitter's newest name.
     ...(block
       ? [
@@ -113,9 +117,11 @@ comparisonsAdmin.post('/submitters/:twitchId/discard', async (c) => {
     db.prepare('DELETE FROM sightings WHERE comparison_id IN (SELECT id FROM comparisons WHERE submitted_by = ?)').bind(twitchId),
     db.prepare('DELETE FROM comparisons WHERE submitted_by = ?').bind(twitchId),
   ]);
+  const done = counted?.results[0];
+  if (!done?.comparisons) return c.json<ApiError>({ error: 'Nothing to discard.' }, 404);
   const body: ComparisonsDiscarded = {
-    comparisons: found.comparisons,
-    matches: found.matches,
+    comparisons: done.comparisons,
+    matches: done.matches,
     blocked: block ? (blocked?.results[0] ?? null) : null,
   };
   return c.json(body, 200, NO_STORE);

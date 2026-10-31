@@ -196,6 +196,20 @@ describe('admin comparisons', () => {
     expect(await db.prepare('SELECT 1 FROM blocked_submitters').first()).toBeNull();
   });
 
+  it('a block that loses a race with another discard says so instead of reporting success', async () => {
+    await seed('C1', { by: 'T2', login: 'spammer', name: 'Spammer' });
+    // Another admin's discard lands between this request's checks and its writes.
+    const realBatch = db.batch.bind(db);
+    vi.spyOn(db, 'batch').mockImplementationOnce(async (statements) => {
+      await db.prepare("DELETE FROM comparisons WHERE submitted_by = 'T2'").run();
+      return realBatch(statements);
+    });
+    const res = await send('POST', '/api/admin/submitters/T2/discard', admin, { block: true });
+    expect(res.status).toBe(404);
+    expect(await res.json<ApiError>()).toEqual({ error: 'Nothing to discard.' });
+    expect(await db.prepare('SELECT 1 FROM blocked_submitters').first()).toBeNull();
+  });
+
   it('unblocking removes the block', async () => {
     await db.prepare("INSERT INTO blocked_submitters (twitch_id, login, display_name, blocked_by) VALUES ('T2', 'spammer', 'Spammer', 'T1')").run();
     const res = await send('DELETE', '/api/admin/blocked/T2', admin);

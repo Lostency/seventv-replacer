@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { SEASONS, seasonLabel, type SeasonId } from '@shared/seasons';
 import type { AdminComparison, AdminComparisonsResponse, BlockedSubmitter, SubmitterGroup } from '@shared/types';
 import { discardComparison, discardSubmitter, fetchAdminComparisons, moveComparison, unblockSubmitter } from '../../api';
@@ -59,6 +59,8 @@ export function Comparisons({ onChanged, onProblem }: ComparisonsProps) {
   /** Bumped after a failed write, so the list is read again from the server. */
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
+  /** Comparisons whose season move is still saving: a knob drag fires many changes, and only the first may go out. */
+  const moving = useRef(new Set<string>());
 
   useEffect(() => {
     let current = true;
@@ -107,9 +109,15 @@ export function Comparisons({ onChanged, onProblem }: ComparisonsProps) {
               submitter={s}
               startOpen={index < EXPANDED}
               busy={busy}
-              onMove={(c, season) =>
-                void act(c.id, async () => replaced((await moveComparison(c.id, season)).comparison), 'The season didn’t change. Try again.')
-              }
+              onMove={(c, season) => {
+                if (moving.current.has(c.id)) return;
+                moving.current.add(c.id);
+                void act(
+                  c.id,
+                  async () => replaced((await moveComparison(c.id, season)).comparison),
+                  'The season didn’t change. Try again.',
+                ).finally(() => moving.current.delete(c.id));
+              }}
               onDiscard={(c) =>
                 void act(
                   c.id,
