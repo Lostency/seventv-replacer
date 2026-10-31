@@ -13,6 +13,7 @@ import type {
 } from '../../shared/types';
 import { getThreshold, listCandidates, setThreshold } from '../candidates';
 import { requireAdmin, type AppEnv } from '../session';
+import { comparisonsAdmin } from './comparisons-admin';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 const MAPPING_COLUMNS = 'original_id AS originalId, replacement_id AS replacementId, source, created_at AS createdAt';
@@ -35,6 +36,7 @@ const decisionBody = z
 export const admin = new Hono<AppEnv>();
 
 admin.use('*', requireAdmin);
+admin.route('/', comparisonsAdmin);
 
 admin.get('/review/:season', async (c) => {
   const season = c.req.param('season');
