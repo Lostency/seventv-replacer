@@ -142,6 +142,67 @@ describe('admin comparisons', () => {
     expect(await db.prepare("SELECT 1 FROM rejections WHERE original_id = 'O3'").first()).not.toBeNull();
   });
 
+  it('discards everything one submitter sent, leaving others alone', async () => {
+    await seed('C1', { by: 'T2', login: 'spammer', sightings: [['O1', 'R1']] });
+    await seed('C2', { by: 'T2', login: 'spammer', sightings: [['O2', 'R2'], ['O3', 'R3']] });
+    await seed('C3', { by: 'T2', login: 'spammer', sightings: [['O4', 'R4']] });
+    await seed('C4', { by: 'T1', login: 'niena', sightings: [['O5', 'R5']] });
+
+    const res = await send('POST', '/api/admin/submitters/T2/discard', admin, { block: false });
+    expect(res.status).toBe(200);
+    expect(await res.json<ComparisonsDiscarded>()).toEqual({ comparisons: 3, matches: 4, blocked: null });
+    const left = await db.prepare('SELECT comparison_id AS id FROM sightings').all();
+    expect(left.results).toEqual([{ id: 'C4' }]);
+    expect((await list()).submitters.map((s) => s.twitchId)).toEqual(['T1']);
+    expect(await db.prepare('SELECT 1 FROM blocked_submitters').first()).toBeNull();
+  });
+
+  it('discard and block records the block with the submitter’s newest name', async () => {
+    await seed('C1', { by: 'T2', login: 'oldname', name: 'OldName', at: '2026-10-20T12:00:00Z' });
+    await seed('C2', { by: 'T2', login: 'spammer', name: 'Spammer', at: '2026-10-30T12:00:00Z' });
+
+    const res = await send('POST', '/api/admin/submitters/T2/discard', admin, { block: true });
+    expect(res.status).toBe(200);
+    expect(await res.json<ComparisonsDiscarded>()).toEqual({
+      comparisons: 2,
+      matches: 0,
+      blocked: { twitchId: 'T2', login: 'spammer', displayName: 'Spammer', blockedAt: expect.any(String) },
+    });
+    const after = await list();
+    expect(after.submitters).toEqual([]);
+    expect(after.blocked).toMatchObject([{ twitchId: 'T2', login: 'spammer' }]);
+  });
+
+  it('refuses to block an admin, but discarding their comparisons is fine', async () => {
+    await seed('C1', { by: 'T1', login: 'niena' });
+    const refused = await send('POST', '/api/admin/submitters/T1/discard', admin, { block: true });
+    expect(refused.status).toBe(403);
+    expect(await refused.json<ApiError>()).toEqual({ error: 'Admins can’t be blocked.' });
+    expect(await db.prepare("SELECT 1 FROM comparisons WHERE id = 'C1'").first()).not.toBeNull();
+    expect((await send('POST', '/api/admin/submitters/T1/discard', admin, { block: false })).status).toBe(200);
+  });
+
+  it('blocks a submitter whose login is unknown', async () => {
+    await seed('C1', { by: 'T9' });
+    const res = await send('POST', '/api/admin/submitters/T9/discard', admin, { block: true });
+    expect(res.status).toBe(200);
+    expect(await db.prepare('SELECT login, display_name AS name FROM blocked_submitters').first()).toEqual({ login: null, name: null });
+  });
+
+  it('discarding a submitter with nothing left answers 404', async () => {
+    const res = await send('POST', '/api/admin/submitters/T2/discard', admin, { block: true });
+    expect(res.status).toBe(404);
+    expect(await res.json<ApiError>()).toEqual({ error: 'Nothing to discard.' });
+    expect(await db.prepare('SELECT 1 FROM blocked_submitters').first()).toBeNull();
+  });
+
+  it('unblocking removes the block', async () => {
+    await db.prepare("INSERT INTO blocked_submitters (twitch_id, login, display_name, blocked_by) VALUES ('T2', 'spammer', 'Spammer', 'T1')").run();
+    const res = await send('DELETE', '/api/admin/blocked/T2', admin);
+    expect(res.status).toBe(204);
+    expect((await list()).blocked).toEqual([]);
+  });
+
   it('discarding an unknown id answers 404', async () => {
     const res = await send('DELETE', '/api/admin/comparisons/NOPE', admin);
     expect(res.status).toBe(404);

@@ -72,6 +72,60 @@ comparisonsAdmin.put('/comparisons/:id/season', async (c) => {
   return c.json(body, 200, NO_STORE);
 });
 
+const discardBody = z.object({ block: z.boolean() });
+
+/** Discards every comparison one submitter sent and, with `block`, stops them submitting again. */
+comparisonsAdmin.post('/submitters/:twitchId/discard', async (c) => {
+  const parsed = discardBody.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json<ApiError>({ error: 'Say whether to block them, then try again.' }, 400);
+  const { block } = parsed.data;
+  const twitchId = c.req.param('twitchId');
+
+  const db = c.env.DB;
+  const found = await db
+    .prepare(
+      `SELECT COUNT(*) AS comparisons, COALESCE(SUM(match_count), 0) AS matches,
+              (SELECT submitter_login FROM comparisons WHERE submitted_by = ?1 AND submitter_login IS NOT NULL
+                ORDER BY submitted_at DESC LIMIT 1) AS login
+         FROM comparisons WHERE submitted_by = ?1`,
+    )
+    .bind(twitchId)
+    .first<{ comparisons: number; matches: number; login: string | null }>();
+  if (!found?.comparisons) return c.json<ApiError>({ error: 'Nothing to discard.' }, 404);
+  if (block && found.login !== null && isAdmin(c.env, found.login)) {
+    return c.json<ApiError>({ error: 'Admins can’t be blocked.' }, 403);
+  }
+
+  const [blocked] = await db.batch<BlockedSubmitter>([
+    // Before the deletes, so it can still read the submitter's newest name.
+    ...(block
+      ? [
+          db
+            .prepare(
+              `INSERT OR REPLACE INTO blocked_submitters (twitch_id, login, display_name, blocked_by)
+               SELECT submitted_by, submitter_login, submitter_name, ? FROM comparisons
+                WHERE submitted_by = ? ORDER BY submitted_at DESC LIMIT 1
+               RETURNING ${BLOCKED_COLUMNS}`,
+            )
+            .bind(c.get('user').twitchId, twitchId),
+        ]
+      : []),
+    db.prepare('DELETE FROM sightings WHERE comparison_id IN (SELECT id FROM comparisons WHERE submitted_by = ?)').bind(twitchId),
+    db.prepare('DELETE FROM comparisons WHERE submitted_by = ?').bind(twitchId),
+  ]);
+  const body: ComparisonsDiscarded = {
+    comparisons: found.comparisons,
+    matches: found.matches,
+    blocked: block ? (blocked?.results[0] ?? null) : null,
+  };
+  return c.json(body, 200, NO_STORE);
+});
+
+comparisonsAdmin.delete('/blocked/:twitchId', async (c) => {
+  await c.env.DB.prepare('DELETE FROM blocked_submitters WHERE twitch_id = ?').bind(c.req.param('twitchId')).run();
+  return c.body(null, 204);
+});
+
 comparisonsAdmin.delete('/comparisons/:id', async (c) => {
   const id = c.req.param('id');
   const db = c.env.DB;
