@@ -55,6 +55,18 @@ _Avoid_: Revert, rollback
 One specific normal emote set and one specific seasonal emote set, matched by alias. It belongs to the channel that owns the normal set, even when the seasonal set is owned by someone else; a channel can have several comparisons for the same season.
 _Avoid_: Analysis, set pair, diff
 
+**Submitter**:
+The signed-in Twitch account that submitted a comparison. Not the channel: one submitter can send comparisons for many channels.
+_Avoid_: User, author, channel (when meaning who submitted)
+
+**Discard**:
+An admin deleting a comparison and all its sightings; accepted mappings and rejections stay.
+_Avoid_: Remove, purge
+
+**Block**:
+A record that a submitter may not submit comparisons until an admin unblocks them.
+_Avoid_: Ban
+
 **Sighting**:
 One channel's evidence, from a comparison, that an original emote was swapped for a specific seasonal emote under the same alias.
 _Avoid_: Match, observation, hit

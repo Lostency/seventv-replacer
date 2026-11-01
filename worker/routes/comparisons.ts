@@ -10,7 +10,7 @@ import type {
   Cooldown,
   SetRef,
 } from '../../shared/types';
-import { requireUser, type AppEnv } from '../session';
+import { isAdmin, requireUser, type AppEnv } from '../session';
 
 /** The same normal + seasonal pair can be submitted again this long after its last submission. */
 export const COOLDOWN_DAYS = 14;
@@ -86,6 +86,13 @@ comparisons.post('/', async (c) => {
   if (!parsed.success) return c.json<ApiError>({ error: 'Pick both sets and a season, then try again.' }, 400);
   const { normalSetId, seasonalSetId, season, excluded } = parsed.data;
 
+  // Admins are never refused, even if their Twitch ID ended up blocked.
+  const user = c.get('user');
+  if (!isAdmin(c.env, user.login)) {
+    const blocked = await c.env.DB.prepare('SELECT 1 FROM blocked_submitters WHERE twitch_id = ?').bind(user.twitchId).first();
+    if (blocked) return c.json<ApiError>({ error: 'You can’t submit comparisons any more.' }, 403);
+  }
+
   const previous = await existing(c, normalSetId, seasonalSetId);
   const cooldown = activeCooldown(previous);
   if (cooldown) return c.json<ApiError>({ error: 'These two sets were compared recently.', cooldown }, 409);
@@ -99,7 +106,6 @@ comparisons.post('/', async (c) => {
   const matches = matchSets(pair.normal, pair.seasonal).filter((m) => !skip.has(pairingKey(m)));
   if (matches.length === 0) return c.json<ApiError>({ error: 'Tick at least one match to submit.' }, 400);
 
-  const user = c.get('user');
   const id = previous?.id ?? crypto.randomUUID();
   const submittedAt = new Date().toISOString();
   const db = c.env.DB;
@@ -108,13 +114,31 @@ comparisons.post('/', async (c) => {
     db.prepare('DELETE FROM sightings WHERE comparison_id = ?').bind(id),
     db
       .prepare(
-        `INSERT INTO comparisons (id, normal_set_id, seasonal_set_id, season, channel_id, channel_name, submitted_by, submitted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO comparisons (id, normal_set_id, seasonal_set_id, season, channel_id, channel_name, submitted_by, submitted_at,
+                                  submitter_login, submitter_name, normal_set_name, seasonal_set_name, match_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (normal_set_id, seasonal_set_id) DO UPDATE SET
            season = excluded.season, channel_id = excluded.channel_id, channel_name = excluded.channel_name,
-           submitted_by = excluded.submitted_by, submitted_at = excluded.submitted_at`,
+           submitted_by = excluded.submitted_by, submitted_at = excluded.submitted_at,
+           submitter_login = excluded.submitter_login, submitter_name = excluded.submitter_name,
+           normal_set_name = excluded.normal_set_name, seasonal_set_name = excluded.seasonal_set_name,
+           match_count = excluded.match_count`,
       )
-      .bind(id, normalSetId, seasonalSetId, season, owner.id, owner.name, user.twitchId, submittedAt),
+      .bind(
+        id,
+        normalSetId,
+        seasonalSetId,
+        season,
+        owner.id,
+        owner.name,
+        user.twitchId,
+        submittedAt,
+        user.login,
+        user.displayName,
+        pair.normal.name,
+        pair.seasonal.name,
+        matches.length,
+      ),
     // One statement for every sighting: D1 caps the queries a single request may run.
     db
       .prepare(

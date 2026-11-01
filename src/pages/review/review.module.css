@@ -99,6 +99,95 @@
   color: var(--ink-soft);
 }
 
+/* Comparisons: one card per submitter, each comparison a row with its season knob. */
+.submitters {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.submitterName {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+}
+
+.comparisonList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comparisonRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 0;
+  border-top: 1px dashed var(--mat-line);
+}
+
+.comparisonInfo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.comparisonSets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.rowKnob {
+  --knob-size: 56px;
+  font-size: 12px;
+}
+
+.confirm {
+  display: grid;
+  gap: 10px;
+}
+
+.blocked {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.blockedTitle {
+  margin: 0;
+  font-size: 16px;
+}
+
+.blockedList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.blockedRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .comparisonRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .replace {
   display: grid;
   gap: 12px;

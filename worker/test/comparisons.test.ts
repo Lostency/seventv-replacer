@@ -39,7 +39,11 @@ const sightings = () =>
 let cookie: string;
 
 beforeEach(async () => {
-  await env.DB.batch([env.DB.prepare('DELETE FROM sightings'), env.DB.prepare('DELETE FROM comparisons')]);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM sightings'),
+    env.DB.prepare('DELETE FROM comparisons'),
+    env.DB.prepare('DELETE FROM blocked_submitters'),
+  ]);
   cookie = await signIn('viewer');
   mockOutbound({ ...twitchHandlers(), ...sevenTv });
 });
@@ -77,6 +81,19 @@ describe('comparisons', () => {
     expect(await sightings()).toEqual([{ o: 'A', r: 'A2', alias: 'peepoHappy', ch: 'U-niena', season: 'halloween' }]);
   });
 
+  it('records who submitted, both set names and the match count', async () => {
+    await post('/api/comparisons', cookie, {
+      normalSetId: NORMAL,
+      seasonalSetId: SEASONAL,
+      season: 'halloween',
+      excluded: [{ originalId: 'B', replacementId: 'B2' }],
+    });
+    const row = await env.DB.prepare(
+      'SELECT submitter_login AS login, submitter_name AS name, normal_set_name AS n, seasonal_set_name AS s, match_count AS m FROM comparisons',
+    ).first();
+    expect(row).toEqual({ login: 'viewer', name: 'viewer', n: 'Set N01', s: 'Set S01', m: 1 });
+  });
+
   it('holds the same pair for 14 days, then replaces its sightings', async () => {
     const submit = (excluded: unknown[] = []) =>
       post('/api/comparisons', cookie, { normalSetId: NORMAL, seasonalSetId: SEASONAL, season: 'halloween', excluded });
@@ -96,6 +113,8 @@ describe('comparisons', () => {
     expect((await sightings()).map((s) => s.alias)).toEqual(['peepoHappy', 'Sadge']);
     const { results } = await env.DB.prepare('SELECT COUNT(*) AS n FROM comparisons').all<{ n: number }>();
     expect(results[0]!.n).toBe(1);
+    const count = await env.DB.prepare('SELECT match_count AS m FROM comparisons').first<{ m: number }>();
+    expect(count!.m).toBe(2);
   });
 
   it('leaves other pairs from the same channel alone', async () => {
@@ -122,6 +141,36 @@ describe('comparisons', () => {
     });
     expect(res.status).toBe(404);
     expect((await res.json<ApiError>()).error).toMatch(/no emote set/);
+  });
+
+  it('refuses a blocked submitter before asking 7TV, but still previews', async () => {
+    await env.DB.prepare("INSERT INTO blocked_submitters (twitch_id, login, display_name, blocked_by) VALUES ('T1', 'viewer', 'viewer', 'X')").run();
+    const fetchMock = mockOutbound({ ...twitchHandlers(), ...sevenTv });
+    const res = await post('/api/comparisons', cookie, { normalSetId: NORMAL, seasonalSetId: SEASONAL, season: 'halloween', excluded: [] });
+    expect(res.status).toBe(403);
+    expect(await res.json<ApiError>()).toEqual({ error: 'You can’t submit comparisons any more.' });
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('7tv.io'))).toEqual([]);
+    const preview = await post('/api/comparisons/preview', cookie, { normalSetId: NORMAL, seasonalSetId: SEASONAL });
+    expect(preview.status).toBe(200);
+  });
+
+  it('a signed-in admin can submit even when their ID is blocked', async () => {
+    const admin = await signIn('niena'); // Twitch ID T1
+    mockOutbound({ ...twitchHandlers(), ...sevenTv });
+    await env.DB.prepare("INSERT INTO blocked_submitters (twitch_id, login, display_name, blocked_by) VALUES ('T1', 'oldname', 'oldname', 'X')").run();
+    const res = await post('/api/comparisons', admin, { normalSetId: NORMAL, seasonalSetId: SEASONAL, season: 'halloween', excluded: [] });
+    expect(res.status).toBe(201);
+  });
+
+  it('discarding frees the pair for an immediate resubmit', async () => {
+    const submit = () => post('/api/comparisons', cookie, { normalSetId: NORMAL, seasonalSetId: SEASONAL, season: 'halloween', excluded: [] });
+    expect((await submit()).status).toBe(201);
+    expect((await submit()).status).toBe(409);
+    const admin = await signIn('niena');
+    mockOutbound({ ...twitchHandlers(), ...sevenTv });
+    const { id } = (await env.DB.prepare('SELECT id FROM comparisons').first<{ id: string }>())!;
+    expect((await call(`/api/admin/comparisons/${id}`, { method: 'DELETE', headers: { Cookie: admin } })).status).toBe(200);
+    expect((await submit()).status).toBe(201);
   });
 
   it('refuses an unknown season', async () => {

@@ -154,6 +154,52 @@ export interface DecisionRequest {
   rejectIds: string[];
 }
 
+/** One submitted comparison as admins see it. Set names are null on comparisons from before they were stored. */
+export interface AdminComparison {
+  id: string;
+  channelName: string;
+  normalSetId: string;
+  normalSetName: string | null;
+  seasonalSetId: string;
+  seasonalSetName: string | null;
+  season: SeasonId;
+  matches: number;
+  submittedAt: string;
+}
+
+/** Everything one submitter sent, newest first. `admin` hides the block key. */
+export interface SubmitterGroup {
+  twitchId: string;
+  login: string | null;
+  displayName: string | null;
+  admin: boolean;
+  matches: number;
+  latest: string;
+  comparisons: AdminComparison[];
+}
+
+export interface BlockedSubmitter {
+  twitchId: string;
+  login: string | null;
+  displayName: string | null;
+  blockedAt: string;
+}
+
+export interface AdminComparisonsResponse {
+  submitters: SubmitterGroup[];
+  blocked: BlockedSubmitter[];
+}
+
+export interface ComparisonMoved {
+  comparison: AdminComparison;
+}
+
+export interface ComparisonsDiscarded {
+  comparisons: number;
+  matches: number;
+  blocked: BlockedSubmitter | null;
+}
+
 export interface ApiError {
   error: string;
   cooldown?: Cooldown;
